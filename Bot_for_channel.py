@@ -1,17 +1,18 @@
 import os
 import re
-import pytz
 import asyncio
 from threading import Thread
 from flask import Flask
-from datetime import datetime
 from telegram import Update
 from telegram.constants import MessageEntityType
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from datetime import datetime
+import pytz
+import time
 
 app_web = Flask(__name__)
 
-# OWNER_ID from Render environment variable (numeric Telegram user id mo)
+# OWNER_ID from Render environment variable
 OWNER_ID = int(os.getenv("OWNER_ID", "0"))
 
 @app_web.route("/")
@@ -21,7 +22,6 @@ def home():
 def keep_alive():
     port = int(os.environ.get("PORT", 10000))
     Thread(target=lambda: app_web.run(host="0.0.0.0", port=port)).start()
-
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -36,7 +36,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(start_message, parse_mode="HTML")
-
 
 async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
@@ -56,7 +55,6 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await chat.send_message(welcome_message, parse_mode="HTML", disable_web_page_preview=True)
-        
 
 # -------------------- Moderation Helpers --------------------
 def msg_is_forwarded(msg) -> bool:
@@ -72,16 +70,13 @@ def msg_has_link(msg) -> bool:
     text = (msg.text or msg.caption or "")[:4096]
     t = text.lower()
 
-    # common link patterns
     if re.search(r"(https?://|www\.|t\.me/|telegram\.me/)", t):
         return True
 
-    # plain domains without http(s), ex: google.com
     if re.search(r"\b[a-z0-9-]+\.(com|net|org|io|co|me|gg|app|xyz|site|dev|ph)\b", t):
         return True
 
-    # telegram entities (clickable links)
-    entities = (msg.entities or []) + (msg.caption_entities or [])
+    entities = (msg.entities or []) + (getattr(msg, "caption_entities", []) or [])
     for e in entities:
         if e.type in (MessageEntityType.URL, MessageEntityType.TEXT_LINK):
             return True
@@ -89,13 +84,12 @@ def msg_has_link(msg) -> bool:
     return False
 
 async def send_temp_warning(chat, text: str, seconds: int = 5):
-    warn = await chat.send_message(text)
-    await asyncio.sleep(seconds)
     try:
+        warn = await chat.send_message(text)
+        await asyncio.sleep(seconds)
         await warn.delete()
-    except Exception:
+    except:
         pass
-
 
 async def moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -104,28 +98,20 @@ async def moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = msg.from_user.id
 
-    # OWNER exception: ikaw pwede mag-forward at mag-link
+    # Owner exception
     if OWNER_ID and user_id == OWNER_ID:
         return
 
-    # Optional: if you want admins also allowed, uncomment below:
-    # member = await context.bot.get_chat_member(msg.chat.id, user_id)
-    # if member.status in ("administrator", "creator"):
-    #     return
-
     try:
-        # delete forwarded messages
         if msg_is_forwarded(msg):
             await msg.delete()
             await send_temp_warning(msg.chat, "⚠️ Forward messages are not allowed to prevent ads/spam.")
             return
 
-        # delete link messages (kahit normal chat)
         if msg_has_link(msg):
             await msg.delete()
             await send_temp_warning(msg.chat, "⚠️ Links are not allowed kupal!")
             return
-
     except Exception as e:
         print("moderate error:", e)
 
@@ -136,55 +122,45 @@ async def detect_pogi(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = msg.text.lower()
 
-    if re.search(r"\bkaze\b", text):
+    if "kaze" in text:
         await msg.reply_text("Pogi si Kaze!")
         return
 
-    if re.search(r"\bkuri\b", text):
+    if "kuri" in text:
         await msg.reply_text("Pogi")
         return
         
-    if re.search(r"\bphia\b", text):
+    if "phia" in text:
         await msg.reply_text("Phia maganda")
         return
 
-    # ===== HI / HELLO =====
     if re.search(r"\b(hi|hello|hey|hoy|yo)\b", text):
         await update.message.reply_text("👋 Hi! Kumusta ka?")
         return
 
-    # ===== THANK YOU =====
     if re.search(r"\b(thanks|thank you|thx|salamat)\b", text):
         await update.message.reply_text("🙏 Walang anuman! 😊")
         return
 
-    # ===== GOOD NIGHT =====
     if re.search(r"\b(good night|gn|gabing gabi)\b", text):
         await update.message.reply_text("🌙 Good night too😴")
         return
 
-    # ===== GOOD MORNING =====
     if re.search(r"\b(good morning|gm|umaga na)\b", text):
         await update.message.reply_text("☀️ Good morning too!😏")
         return
 
-    # ===== WHAT TIME =====
-    if re.search(r"\b(anong oras naba?|time|What time is it?)\b", text):
+    if re.search(r"\b(anong oras naba?|time|what time is it?)\b", text):
         tz = pytz.timezone("Asia/Manila")
         now = datetime.now(tz)
         time_now = now.strftime("%I:%M %p")
-
-        await update.message.reply_text(
-            f"⏰ Time check: **{time_now}**",
-            parse_mode="Markdown"
-        )
+        await update.message.reply_text(f"⏰ Time check: **{time_now}**", parse_mode="Markdown")
         return
 
     if re.search(r"\b(ano ang pangalan mo|who are you)\b", text):
         await msg.reply_text("🤖 Ako si Kazebot! Bot na tumutulong sa channel na ito.")
         return
 
-    # ===== FUN / RANDOM =====
     if re.search(r"\b(gg|good game)\b", text):
         await msg.reply_text("🎮 GG! Nice play!")
         return
@@ -192,7 +168,7 @@ async def detect_pogi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if re.search(r"\b(oops|oh no|uh oh)\b", text):
         await msg.reply_text("🤥 Ehh?")
         return
-    
+
 async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg or not context.args:
@@ -205,13 +181,10 @@ async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reason = " ".join(context.args[1:]) if len(context.args) > 1 else "No reason provided"
     chat = update.effective_chat
 
-    # Get reporter info
     reporter_name = update.effective_user.full_name or update.effective_user.username
 
-    # Confirm to reporter (member)
     await msg.reply_text("✅ Your report has been sent to the admins Owner.")
 
-    # Get admins
     admins = await context.bot.get_chat_administrators(chat.id)
 
     for admin in admins:
@@ -235,28 +208,20 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🤖 *KAZEBOT COMMANDS*\n\n"
         "👤 *Member Commands:*\n"
         "/start - Greet and info about the bot\n"
-        "/report @username reason - Report a user anonymously to admins\n\n"
-        "- Forwarded messages not allowed\n"
-        "- Links not allowed\n\n"
-        "/mute @username [duration] - Mute a member ⚠️ Not fix /mute, don't use it yet\n\n"
-        "Please follow the rules and have fun! 🔥"
+        "/report @username reason - Report a user anonymously to admins\n"
+        "/help - Show this list\n\n"
+        "🔇 *Moderation Rules:*\n"
+        "• Forwarded messages are deleted\n"
+        "• Links are deleted\n\n"
+        "Stay active and follow the rules! 🔥"
     )
     await update.message.reply_text(help_text, parse_mode="Markdown")
-    
-# ===== MAIN FUNCTION =====
+
+# ===== MAIN FUNCTION (ONE ONLY!) =====
 def main():
-    token = os.getenv("TELEGRAM_BOT_TOKEN")  # <-- siguraduhing kapareho sa Render env var
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
-        raise RuntimeError("Missing TELEGRAM_TOKEN env var.")
-
-    app = Application.builder().token(token).build()
-
-
-# ===== SA MAIN() FUNCTION =====
-def main():
-    token = os.getenv("TELEGRAM_BOT_TOKEN")  # <-- siguraduhing kapareho sa Render env var
-    if not token:
-        raise RuntimeError("Missing TELEGRAM_TOKEN env var.")
+        raise RuntimeError("Missing TELEGRAM_BOT_TOKEN env var.")
 
     app = Application.builder().token(token).build()
 
@@ -264,23 +229,21 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("report", report_user))
     app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("report", report_user))
 
-    # ===== STATUS UPDATES (welcome new members) =====
+    # Welcome new members
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, detect_pogi))
     
-    # Moderation
-    app.add_handler(
-        MessageHandler(
-            (filters.TEXT | filters.CAPTION | filters.FORWARDED) & ~filters.COMMAND,
-            moderate
-        )
-    )
+    # Pogi detector & auto replies
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, detect_pogi))
+
+    # Moderation (anti-forward & anti-link)
+    app.add_handler(MessageHandler(
+        (filters.TEXT | filters.CAPTION | filters.FORWARDED) & ~filters.COMMAND,
+        moderate
+    ))
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
-# ===== RUN =====
 if __name__ == "__main__":
     keep_alive()
     main()
