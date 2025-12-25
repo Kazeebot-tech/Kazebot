@@ -1,8 +1,7 @@
-pyTelegramBotAPI
+aiofiles
+flask
+PyGithub
+python-dotenv
+python-telegram-bot==20.8
 pytz
 requests
-PyGithub
-aiofiles
-python-dotenv
-flask
-python-telegram-bot==20.8
