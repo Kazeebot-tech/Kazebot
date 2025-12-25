@@ -362,7 +362,9 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("report", report_user))
-
+    app.add_handler(CommandHandler("mute", mute_request))
+    app.add_handler(CommandHandler("approve", approve_mute))
+    
     # ===== STATUS UPDATES (welcome new members) =====
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, detect_pogi))
