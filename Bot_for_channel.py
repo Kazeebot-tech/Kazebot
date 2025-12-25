@@ -1,7 +1,5 @@
 import os
-import asyncio
-from flask import Flask
-from telegram import Update, MessageEntity
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -10,120 +8,93 @@ from telegram.ext import (
     filters,
 )
 
-# ===== CONFIG =====
+# Environment variables
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OWNER_ID = int(os.getenv("OWNER_ID", "0"))
-PORT = int(os.getenv("PORT", 10000))
+OWNER_ID = int(os.getenv("OWNER_ID"))
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
+# Validation
 if not TOKEN:
-    raise RuntimeError("Missing TELEGRAM_BOT_TOKEN")
+    raise RuntimeError("Missing TELEGRAM_BOT_TOKEN!")
+if not OWNER_ID or not CHANNEL_ID:
+    raise RuntimeError("Missing OWNER_ID or CHANNEL_ID!")
 
-# ===== FLASK =====
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Kazebot is running!"
-
-# ===== HELPERS =====
-def msg_is_forwarded(msg):
-    return bool(
-        msg.forward_origin
-        or msg.forward_from
-        or msg.forward_from_chat
-        or msg.forward_sender_name
-    )
-
-def msg_has_tme_link(msg):
-    text = (msg.text or msg.caption or "").lower()
-    if "t.me/" in text or "telegram.me/" in text:
-        return True
-
-    entities = (msg.entities or []) + (msg.caption_entities or [])
-    for e in entities:
-        if e.type in (MessageEntity.URL, MessageEntity.TEXT_LINK):
-            url = (e.url or "").lower()
-            if "t.me/" in url or "telegram.me/" in url:
-                return True
-    return False
-
-async def temp_warn(chat, text, sec=5):
-    msg = await chat.send_message(text)
-    await asyncio.sleep(sec)
-    try:
-        await msg.delete()
-    except:
-        pass
-
-# ===== MODERATION =====
-async def moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    if not msg:
-        return
-
-    user_id = msg.from_user.id
-
-    if OWNER_ID and user_id == OWNER_ID:
-        return
-
-    try:
-        member = await context.bot.get_chat_member(msg.chat.id, user_id)
-        if member.status in ("administrator", "creator"):
-            return
-    except:
-        pass
-
-    if msg_is_forwarded(msg):
-        await msg.delete()
-        await temp_warn(msg.chat, "⚠️ Forwarded messages are not allowed.")
-        return
-
-    if msg_has_tme_link(msg):
-        await msg.delete()
-        await temp_warn(msg.chat, "⚠️ t.me links are not allowed.")
-        return
-
-# ===== COMMANDS =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /start command sa channel"""
+    if update.effective_chat.id != CHANNEL_ID:
+        return
+
     user = update.effective_user
-    name = user.full_name if user else "Player"
-    await update.message.reply_text(
-        f"👋 Hi {name}!\n\n"
-        "I'm Kazebot 🤖\n"
-        "No forwarded messages\n"
-        "No t.me links\n\n"
-        "Type /help"
-    )
+    first_name = user.first_name or "Ka-Skit"
 
-async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "/start - Start bot\n"
-        "/help - Commands\n"
-        "/report @user reason - Report member\n\n"
-        "Rules:\n"
-        "- No forwarded messages\n"
-        "- No t.me links"
-    )
+    welcome_text = f"""
+Hi {first_name}! 👋
 
-# ===== MAIN ASYNC =====
-async def main():
-    tg_app = Application.builder().token(TOKEN).build()
+Welcome sa **KazeSkit Giveaway Collective**! 🎉
 
-    tg_app.add_handler(CommandHandler("start", start))
-    tg_app.add_handler(CommandHandler("help", help_cmd))
-    tg_app.add_handler(
+Dito tayo mag-enjoy sa mga legit giveaways at updates! 
+
+⚠️ Reminder lang ha:
+• Bawal mag-forward ng messages
+• Bawal maglagay ng t.me links (except admins)
+
+Para clean at safe lagi ang channel natin! 🔒
+
+Good luck sa mga giveaways, sana manalo ka! 🔥
+    """
+    await update.message.reply_text(welcome_text.strip())
+
+async def moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Block forwards and t.me links from non-admins"""
+    message = update.effective_message
+    if message.chat_id != CHANNEL_ID:
+        return
+
+    user_id = update.effective_user.id
+
+    # Owner always allowed
+    if user_id == OWNER_ID:
+        return
+
+    # Get admins
+    admins = await context.bot.get_chat_administrators(CHANNEL_ID)
+    admin_ids = [admin.user.id for admin in admins]
+
+    # Admins allowed
+    if user_id in admin_ids:
+        return
+
+    # BLOCK 1: Forwarded messages
+    if message.forward_from or message.forward_from_chat or message.forward_date:
+        await message.delete()
+        print(f"Deleted forwarded message from {user_id}")
+        return
+
+    # BLOCK 2: t.me links
+    text = (message.text or message.caption or "").lower()
+    if "t.me/" in text:
+        await message.delete()
+        print(f"Deleted message with t.me link from {user_id}")
+
+def main():
+    app = Application.builder().token(TOKEN).build()
+
+    # Commands
+    app.add_handler(CommandHandler("start", start))
+
+    # Moderation: text, caption, forwarded (hindi commands)
+    app.add_handler(
         MessageHandler(
             (filters.TEXT | filters.CAPTION | filters.FORWARDED) & ~filters.COMMAND,
-            moderate,
+            moderate
         )
     )
 
-    await tg_app.initialize()
-    await tg_app.start()
-    await tg_app.bot.initialize()
-
-    # Flask runs forever
-    app.run(host="0.0.0.0", port=PORT)
+    # Start the bot
+    print("Bot is starting...")
+    print(f"Monitoring channel: {CHANNEL_ID}")
+    print(f"Owner ID: {OWNER_ID}")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
