@@ -5,4 +5,4 @@ PyGithub
 aiofiles
 python-dotenv
 flask
-python-telegram-bot==21.6
+python-telegram-bot==20.8
