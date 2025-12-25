@@ -1,129 +1,129 @@
 import os
-import re
 import asyncio
-from threading import Thread
 from flask import Flask
-from datetime import datetime
-import pytz
 from telegram import Update, MessageEntity
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
-# ===== WEBKEEP ALIVE =====
-app_web = Flask(__name__)
+# ===== CONFIG =====
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+PORT = int(os.getenv("PORT", 10000))
 
-@app_web.route("/")
+if not TOKEN:
+    raise RuntimeError("Missing TELEGRAM_BOT_TOKEN")
+
+# ===== FLASK =====
+app = Flask(__name__)
+
+@app.route("/")
 def home():
-    return "Bot is online!"
+    return "Kazebot is running!"
 
-def keep_alive():
-    port = int(os.environ.get("PORT", 10000))
-    Thread(target=lambda: app_web.run(host="0.0.0.0", port=port)).start()
-
-# ===== MODERATION HELPERS =====
-def msg_is_forwarded(msg) -> bool:
+# ===== HELPERS =====
+def msg_is_forwarded(msg):
     return bool(
-        getattr(msg, "forward_origin", None)
-        or getattr(msg, "forward_date", None)
-        or getattr(msg, "forward_from", None)
-        or getattr(msg, "forward_from_chat", None)
-        or getattr(msg, "forward_sender_name", None)
+        msg.forward_origin
+        or msg.forward_from
+        or msg.forward_from_chat
+        or msg.forward_sender_name
     )
 
-def msg_has_tme_link(msg) -> bool:
-    text = (msg.text or msg.caption or "")[:4096]
-    t = text.lower()
-
-    # Block only t.me or telegram.me links in text
-    if "t.me/" in t or "telegram.me/" in t:
+def msg_has_tme_link(msg):
+    text = (msg.text or msg.caption or "").lower()
+    if "t.me/" in text or "telegram.me/" in text:
         return True
 
-    # Check clickable links (entities)
     entities = (msg.entities or []) + (msg.caption_entities or [])
     for e in entities:
         if e.type in (MessageEntity.URL, MessageEntity.TEXT_LINK):
-            url = getattr(e, "url", "") or ""
-            if "t.me/" in url.lower() or "telegram.me/" in url.lower():
+            url = (e.url or "").lower()
+            if "t.me/" in url or "telegram.me/" in url:
                 return True
     return False
 
-async def send_temp_warning(chat, text: str, seconds: int = 5):
-    warn = await chat.send_message(text)
-    await asyncio.sleep(seconds)
+async def temp_warn(chat, text, sec=5):
+    msg = await chat.send_message(text)
+    await asyncio.sleep(sec)
     try:
-        await warn.delete()
-    except Exception:
+        await msg.delete()
+    except:
         pass
 
-# ===== MODERATION FUNCTION =====
+# ===== MODERATION =====
 async def moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
-    if not msg or not msg.from_user:
+    if not msg:
         return
 
     user_id = msg.from_user.id
 
-    # OWNER exception
     if OWNER_ID and user_id == OWNER_ID:
         return
 
-    # ADMIN / CREATOR exception
     try:
         member = await context.bot.get_chat_member(msg.chat.id, user_id)
         if member.status in ("administrator", "creator"):
             return
-    except Exception:
+    except:
         pass
 
-    try:
-        # DELETE forwarded messages
-        if msg_is_forwarded(msg):
-            await msg.delete()
-            await send_temp_warning(msg.chat, "⚠️ Forward messages are not allowed!")
-            return
+    if msg_is_forwarded(msg):
+        await msg.delete()
+        await temp_warn(msg.chat, "⚠️ Forwarded messages are not allowed.")
+        return
 
-        # DELETE t.me links
-        if msg_has_tme_link(msg):
-            await msg.delete()
-            await send_temp_warning(msg.chat, "⚠️ t.me links are not allowed!")
-            return
+    if msg_has_tme_link(msg):
+        await msg.delete()
+        await temp_warn(msg.chat, "⚠️ t.me links are not allowed.")
+        return
 
-    except Exception as e:
-        print("moderate error:", e)
-
-# ===== START COMMAND =====
+# ===== COMMANDS =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    full_name = user.full_name.strip() if user and user.full_name else "Player"
+    name = user.full_name if user else "Player"
     await update.message.reply_text(
-        f"HI {full_name.upper()}, I AM KAZEBOT! 🤖\n"
-        "I WILL HELP MODERATE THIS CHANNEL.\n"
-        "Forwarded messages and t.me links are not allowed!"
+        f"👋 Hi {name}!\n\n"
+        "I'm Kazebot 🤖\n"
+        "No forwarded messages\n"
+        "No t.me links\n\n"
+        "Type /help"
     )
 
-# ===== MAIN FUNCTION =====
-def main():
-    token = os.getenv("TELEGRAM_BOT_TOKEN")  # <-- siguraduhing kapareho sa Render env var
-    if not token:
-        raise RuntimeError("Missing TELEGRAM_TOKEN env var.")
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "/start - Start bot\n"
+        "/help - Commands\n"
+        "/report @user reason - Report member\n\n"
+        "Rules:\n"
+        "- No forwarded messages\n"
+        "- No t.me links"
+    )
 
-    app = Application.builder().token(token).build()
+# ===== MAIN ASYNC =====
+async def main():
+    tg_app = Application.builder().token(TOKEN).build()
 
-    # Commands
-    app.add_handler(CommandHandler("start", start))
-
-    # Moderation
-    app.add_handler(
+    tg_app.add_handler(CommandHandler("start", start))
+    tg_app.add_handler(CommandHandler("help", help_cmd))
+    tg_app.add_handler(
         MessageHandler(
             (filters.TEXT | filters.CAPTION | filters.FORWARDED) & ~filters.COMMAND,
-            moderate
+            moderate,
         )
     )
 
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    await tg_app.initialize()
+    await tg_app.start()
+    await tg_app.bot.initialize()
 
-# ===== RUN =====
+    # Flask runs forever
+    app.run(host="0.0.0.0", port=PORT)
+
 if __name__ == "__main__":
-    keep_alive()
-    main()
-            
+    asyncio.run(main())
