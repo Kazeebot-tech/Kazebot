@@ -95,152 +95,11 @@ async def moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     full_name = user.full_name.strip() if user and user.full_name else "Player"
-
-    start_message = (
-        f"👋 Hi {full_name}! Welcome to Palaro 🎮🔥\n\n"
-        "🤖 I'm here to help keep the channel clean and enjoyable.\n\n"
-        "⚠️ Channel Rules:\n"
-        "• No forwarded messages\n"
-        "• No t.me links\n\n"
-        "💬 Please stay active and respectful.\n"
-        "🛠️ Type /help to see what I can do.\n\n"
-        "🔥 Enjoy the game and have fun!"
+    await update.message.reply_text(
+        f"HI {full_name.upper()}, I AM KAZEBOT! 🤖\n"
+        "I WILL HELP MODERATE THIS CHANNEL.\n"
+        "Forwarded messages and t.me links are not allowed!"
     )
-
-    await update.message.reply_text(start_message)
-    
-async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = update.effective_chat
-    msg = update.message
-    if not msg or not msg.new_chat_members:
-        return
-
-    for m in msg.new_chat_members:
-        full = (m.full_name or m.first_name or "Player").strip()
-
-        welcome_message = (
-            f"👋 Hello {full}, welcome to Palaro! 🎮🔥\n\n"
-            "📌 Please check the pinned rules before playing.\n"
-            "💬 Stay active and follow announcements for updates.\n\n"
-            "👉 If you haven't joined our main channel yet, join here:\n"
-            "https://t.me/+wkXVYyqiRYplZjk1"
-        )
-
-        await chat.send_message(welcome_message, disable_web_page_preview=True)
-# ===== /HELP COMMAND =====
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = (
-        "🤖 <b>Kazebot Commands</b>\n\n"
-        "👤 <b>Member Commands:</b>\n"
-        "/start - Greet and info about the bot\n"
-        "/help - Show this help message"
-        "/report @username reason - Report a user to admin and owner directly\n\n"
-        "- Forwarded messages are not allowed\n"
-        "- telegram links are not allowed\n\n"
-        "Please follow the rules and have fun! 🔥"
-    )
-    await update.message.reply_text(help_text, parse_mode="HTML")
-
-async def detect_pogi(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    if not msg or not msg.text:
-        return
-
-    text = msg.text.lower()
-
-    if re.search(r"\bkaze\b", text):
-        await msg.reply_text("Pogi si Kaze!")
-        return
-
-    if re.search(r"\bkuri\b", text):
-        await msg.reply_text("Pogi")
-        return
-        
-    if re.search(r"\bphia\b", text):
-        await msg.reply_text("Phia maganda")
-        return
-
-    # ===== HI / HELLO =====
-    if re.search(r"\b(hi|hello|hey|hoy|yo)\b", text):
-        await update.message.reply_text("👋 Hi! Kumusta ka?")
-        return
-
-    # ===== THANK YOU =====
-    if re.search(r"\b(thanks|thank you|thx|salamat)\b", text):
-        await update.message.reply_text("🙏 Walang anuman! 😊")
-        return
-
-    # ===== GOOD NIGHT =====
-    if re.search(r"\b(good night|gn|gabing gabi)\b", text):
-        await update.message.reply_text("🌙 Good night too😴")
-        return
-
-    # ===== GOOD MORNING =====
-    if re.search(r"\b(good morning|gm|umaga na)\b", text):
-        await update.message.reply_text("☀️ Good morning too!😏")
-        return
-
-    # ===== WHAT TIME =====
-    if re.search(r"\b(anong oras naba?|time|What time is it?)\b", text):
-        tz = pytz.timezone("Asia/Manila")
-        now = datetime.now(tz)
-        time_now = now.strftime("%I:%M %p")
-
-        await update.message.reply_text(
-            f"⏰ Time check: **{time_now}**",
-            parse_mode="Markdown"
-        )
-        return
-
-    if re.search(r"\b(ano ang pangalan mo|who are you)\b", text):
-        await msg.reply_text("🤖 Ako si Kazebot! Bot na tumutulong sa channel na ito.")
-        return
-
-    # ===== FUN / RANDOM =====
-    if re.search(r"\b(gg|good game)\b", text):
-        await msg.reply_text("🎮 GG! Nice play!")
-        return
-
-    if re.search(r"\b(oops|oh no|uh oh)\b", text):
-        await msg.reply_text("🤥 Ehh?")
-        return
-    
-async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    if not msg or not context.args:
-        await msg.reply_text(
-            "⚠️ Usage:\n/report @username reason\nExample: /report @user spamming links"
-        )
-        return
-
-    reported_user = context.args[0]
-    reason = " ".join(context.args[1:]) if len(context.args) > 1 else "No reason provided"
-    chat = update.effective_chat
-
-    # Get reporter info
-    reporter_name = update.effective_user.full_name or update.effective_user.username
-
-    # Confirm to reporter (member)
-    await msg.reply_text("✅ Your report has been sent to the admins Owner.")
-
-    # Get admins
-    admins = await context.bot.get_chat_administrators(chat.id)
-
-    for admin in admins:
-        if admin.user.is_bot:
-            continue
-        try:
-            await context.bot.send_message(
-                admin.user.id,
-                f"🚨 *Report Notification*\n\n"
-                f"👤 Reported user: {reported_user}\n"
-                f"📝 Reason: {reason}\n"
-                f"🕵️ Reported by: {reporter_name}\n"
-                f"📍 Group: {chat.title}",
-                parse_mode="Markdown"
-            )
-        except:
-            pass
 
 # ===== MAIN FUNCTION =====
 def main():
@@ -252,13 +111,7 @@ def main():
 
     # Commands
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("report", report_user))
 
-    # ===== STATUS UPDATES (welcome new members) =====
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, detect_pogi))
-    
     # Moderation
     app.add_handler(
         MessageHandler(
@@ -273,5 +126,4 @@ def main():
 if __name__ == "__main__":
     keep_alive()
     main()
-
-                
+            
