@@ -166,14 +166,15 @@ import pytz
 from telegram import Update
 from telegram.ext import ContextTypes
 
-async def detect_pogi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg or not msg.text:
         return
 
-    text = msg.text.lower()
+    text = msg.text.strip().lower()
+    user = update.effective_user
 
-    # ===== NAMES / SPECIAL =====
+    # ===== AUTO DETECT (POGI / CHAT REPLIES) =====
     if re.search(r"\bkaze\b", text, re.IGNORECASE):
         await msg.reply_text("Pogi si Kaze!")
         return
@@ -186,55 +187,18 @@ async def detect_pogi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("Phia maganda")
         return
 
-    # ===== HI / HELLO =====
     if re.search(r"\b(hi|hello|hey|hoy|yo)\b", text):
         await msg.reply_text("👋 Hi! Kumusta ka?")
         return
 
-    # ===== THANK YOU =====
-    if re.search(r"\b(thanks|thank you|thx|salamat)\b", text):
-        await msg.reply_text("🙏 Walang anuman! 😊")
+    # ===== PICK NUMBER (1–6) =====
+    if text in ["1", "2", "3", "4", "5", "6"]:
+        await pick_number(update, context)
         return
-
-    # ===== GOOD NIGHT =====
-    if re.search(r"\b(good night|gn|gabing gabi)\b", text):
-        await msg.reply_text("🌙 Good night too 😴")
-        return
-
-    # ===== GOOD MORNING =====
-    if re.search(r"\b(good morning|gm|umaga na)\b", text):
-        await msg.reply_text("☀️ Good morning too! 😏")
-        return
-
-    # ===== WHAT TIME =====
-    if re.search(r"\b(anong oras na ba\?|what time is it|time)\b", text):
-        tz = pytz.timezone("Asia/Manila")
-        now = datetime.now(tz)
-        time_now = now.strftime("%I:%M %p")
-
-        await msg.reply_text(
-            f"⏰ Time check: **{time_now}**",
-            parse_mode="Markdown"
-        )
-        return
-
+        
     # ===== BOT INFO =====
     if re.search(r"\b(ano ang pangalan mo|who are you)\b", text):
         await msg.reply_text("🤖 Ako si Kazebot! Bot na tumutulong sa group na ito.")
-        return
-
-    # ===== FUN / RANDOM =====
-    if re.search(r"\b(gg|good game)\b", text, re.IGNORECASE):
-        replies = ["🎮 GG! Nice play!", "🔥 Solid GG!", "👏 Well played!"]
-        await msg.reply_text(random.choice(replies))
-        return
-
-    if re.search(r"\b(oops|oh no|uh oh)\b", text, re.IGNORECASE):
-        await msg.reply_text("🤥 Ehh?")
-        return
-
-    if re.search(r"\bpalaro\b", text, re.IGNORECASE):
-        await msg.reply_text("Mga kupal 😆")
         return
     
 async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
