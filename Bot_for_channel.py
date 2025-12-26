@@ -1,19 +1,8 @@
 import os
-from flask import Flask
+import pytz
 from telegram import Update
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
 
-# ===== WEBKEEP ALIVE =====
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return 'Hello, World!'
-
-if __name__ == "__main__":
-    # Gamitin ang port na provided ni Render (sa environment variable na `PORT`)
-    port = int(os.environ.get("PORT", 5000))  # Default port fallback kung walang `PORT` env
-    app.run(host='0.0.0.0', port=port)
 # ===== ENV FROM RENDER =====
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID"))
