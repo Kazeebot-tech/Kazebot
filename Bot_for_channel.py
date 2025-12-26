@@ -216,7 +216,7 @@ from telegram.ext import (
 
 # ================= CONFIG =================
 MAX_PLAYERS = 6
-ROLL_WAIT_SECONDS = 15
+ROLL_WAIT_SECONDS = 60
 
 # ================= GLOBAL GAME STATE =================
 picks = {}                  # {user_id: number}
@@ -224,6 +224,7 @@ roll_enabled = True
 pending_game = False
 roll_cooldown_active = False
 roll_cooldown_task = None
+WINNER_DM = "@KAZEHAYAMODZ"
 
 
 # ================= HELPER: CHECK ADMIN =================
@@ -454,7 +455,22 @@ async def runroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await is_admin(update, context):
         roll_enabled = True
         await update.message.reply_text("▶️ Roll enabled!")
-                        
+
+async def switch_kaze(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global WINNER_DM
+
+    if OWNER_ID and update.effective_user.id == OWNER_ID:
+        WINNER_DM = "@KAZEHAYAMODZ"
+        await update.message.reply_text("✅ Successfully switch")
+        return
+
+    if not await is_admin(update, context):
+        await update.message.reply_text("🚫 Admin only command.")
+        return
+
+    WINNER_DM = "@KAZEHAYAMODZ"
+    await update.message.reply_text("✅ Successfully switch")
+    
 # ===== MAIN FUNCTION =====
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -474,6 +490,8 @@ def main():
     app.add_handler(CommandHandler("stoproll", stoproll))
     app.add_handler(CommandHandler("runroll", runroll))
     app.add_handler(CommandHandler("cancelroll", cancelroll))
+    app.add_handler(CommandHandler("switchkuri", switchkuri))
+    app.add_handler(CommandHandler("switchkaze", switchkaze))
 
     # ===== WELCOME =====
     app.add_handler(
