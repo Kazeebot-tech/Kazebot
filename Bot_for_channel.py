@@ -253,15 +253,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = user.id
 
     # ===== NAMES / SPECIAL =====
-    if re.search(r"\bkaze+\b", text_lower, re.IGNORECASE):
-        await msg.reply_text(" Pogi si Kaze!")
+    if re.search(r"\bkaze+\b", text_lower):
+        await msg.reply_text("🔥 Pogi si Kaze!")
         return
 
-    if re.search(r"\bkuri\b", text_lower, re.IGNORECASE):
-        await msg.reply_text(" Pogi")
+    if re.search(r"\bkuri\b", text_lower):
+        await msg.reply_text("😎 Pogi")
         return
 
-    if re.search(r"\bphia\b", text_lower, re.IGNORECASE):
+    if re.search(r"\bphia\b", text_lower):
         await msg.reply_text("🥹 Phia maganda")
         return
 
@@ -290,31 +290,21 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tz = pytz.timezone("Asia/Manila")
         now = datetime.now(tz)
         time_now = now.strftime("%I:%M %p")
-
-        await msg.reply_text(
-            f"⏰ Time check: **{time_now}**",
-            parse_mode="Markdown"
-        )
+        await msg.reply_text(f"⏰ Time check: **{time_now}**", parse_mode="Markdown")
         return
 
     # ===== BOT INFO =====
     if re.search(r"\b(ano ang pangalan mo|who are you)\b", text_lower):
-        await msg.reply_text(
-            "🤖 Ako si Kazebot! Bot na tumutulong sa group na ito."
-        )
+        await msg.reply_text("🤖 Ako si Kazebot!")
         return
 
-    # ===== FUN / RANDOM =====
+    # ===== FUN =====
     if re.search(r"\b(gg|good game)\b", text_lower):
-        await msg.reply_text(" GG! Nice play!")
-        return
-
-    if re.search(r"\b(oops|oh no|uh oh)\b", text_lower):
-        await msg.reply_text(" Ehh?")
+        await msg.reply_text("🎮 GG! Nice play!")
         return
 
     if re.search(r"\bpalaro\b", text_lower):
-        await msg.reply_text(" Mga kupal")
+        await msg.reply_text("🤣 Mga kupal")
         return
 
     # ===== PICK NUMBER (1–6 ONLY) =====
@@ -322,47 +312,39 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if pending_game or roll_cooldown_active:
-        await msg.reply_text("⏳ Game in progress. Please wait.")
+        warn = await msg.reply_text("⏳ Game in progress. Please wait.")
+        await asyncio.sleep(3)
+        await warn.delete()
         return
 
     # 🔒 ONE PICK ONLY
-if user_id in picks:
-    warn = await msg.reply_text(
-        "🚫 You already picked.\nPlease wait for the game to finish."
+    if user_id in picks:
+        warn = await msg.reply_text(
+            "🚫 You already picked.\nPlease wait for the game to finish."
+        )
+        await asyncio.sleep(3)
+        await warn.delete()
+        return
+
+    number = int(text_lower)
+
+    # ❌ DUPLICATE NUMBER
+    if number in picks.values():
+        warn = await msg.reply_text(
+            "❌ That number is already taken.\nChoose another."
+        )
+        await asyncio.sleep(3)
+        await warn.delete()
+        return
+
+    # ✅ SUCCESS PICK
+    picks[user_id] = number
+    confirm = await msg.reply_text(
+        f"✅ {user.first_name}, your pick is locked: [{number}] 🔒"
     )
     await asyncio.sleep(3)
-    try:
-        await warn.delete()
-    except:
-        pass
-    return
-
-number = int(text_lower)
-
-# ❌ DUPLICATE NUMBER
-if number in picks.values():
-    warn = await msg.reply_text(
-        "❌ That number is already taken.\nChoose another."
-    )
-    await asyncio.sleep(3)
-    try:
-        await warn.delete()
-    except:
-        pass
-    return
-
-# ✅ SUCCESS PICK
-picks[user_id] = number
-
-confirm = await msg.reply_text(
-    f"✅ {user.first_name}, your pick is locked: [{number}] 🔒"
-)
-await asyncio.sleep(3)
-try:
     await confirm.delete()
-except:
-    pass
-
+    
 # ================= CORE ROLL =================
 async def process_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, is_reroll=False):
     global pending_game, picks
