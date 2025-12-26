@@ -348,25 +348,31 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
 # ================= CORE ROLL =================
 async def process_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, is_reroll=False):
-    global pending_game, picks
+    global pending_game, picks, WINNER_DM
 
     dice = random.randint(1, 6)
     winners = []
 
     for uid, num in picks.items():
         if num == dice:
-            member = await context.bot.get_chat_member(update.effective_chat.id, uid)
+            member = await context.bot.get_chat_member(
+                update.effective_chat.id, uid
+            )
             winners.append(member.user.mention_html())
 
+    # ===== IF MAY WINNER =====
     if winners:
         await update.message.reply_html(
             f"🎲 <b>{'Re' if is_reroll else ''}Rolled Number:</b> {dice}\n\n"
             f"🎉 <b>WINNER(S):</b>\n"
             f"{'<br>'.join(winners)}\n\n"
-            f"📩 DM @KAZEHAYAMODZ"
+            f"📩 DM {WINNER_DM}"
         )
+
         picks.clear()
         pending_game = False
+
+    # ===== NO WINNER =====
     else:
         pending_game = True
         await update.message.reply_text(
