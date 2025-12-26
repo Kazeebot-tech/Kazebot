@@ -517,16 +517,6 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("report", report_user))
 
-    # ===== AUTO REPLIES FIRST =====
-    app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, detect_pogi)
-    )
-
-    # ===== PICK NUMBER (ONLY 1–6) =====
-    app.add_handler(
-        MessageHandler(filters.Regex(r"^[1-6]$"), pick_number)
-    )
-
     # ===== GAME COMMANDS =====
     app.add_handler(CommandHandler("roll", roll))
     app.add_handler(CommandHandler("reroll", reroll))
@@ -539,7 +529,12 @@ def main():
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome)
     )
 
-    # ===== MODERATION LAST =====
+    # ===== MAIN TEXT HANDLER (AUTO-DETECT + PICK) =====
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text)
+    )
+
+    # ===== MODERATION LAST (CATCH-ALL) =====
     app.add_handler(
         MessageHandler(
             (filters.TEXT | filters.CAPTION | filters.FORWARDED) & ~filters.COMMAND,
@@ -548,10 +543,11 @@ def main():
     )
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
+
+
 # ===== RUN =====
 if __name__ == "__main__":
     keep_alive()
     main()
-
 
     
