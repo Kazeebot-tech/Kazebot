@@ -130,17 +130,35 @@ async def welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===== /HELP COMMAND =====
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = (
-        "🤖 <b>Kazebot Commands</b>\n\n"
-        "👤 <b>Member Commands:</b>\n"
-        "/start - Greet and info about the bot\n"
-        "/help - Show this help message"
-        "/report @username reason - Report a user to admin and owner directly\n\n"
-        "- Forwarded messages are not allowed\n"
-        "- telegram links are not allowed\n\n"
-        "Please follow the rules and have fun! 🔥"
-    )
-    await update.message.reply_text(help_text, parse_mode="HTML")
+        "🤖 <b>KAZEBOT HELP MENU</b>\n\n"
 
+        "👤 <b>MEMBER COMMANDS</b>\n"
+        "• /start – Bot information\n"
+        "• /help – Show this help menu\n"
+        "• /report @username reason – Report a user to admin & owner\n\n"
+
+        "🎮 <b>GAME COMMANDS</b>\n"
+        "• Pick numbers: <b>1–6</b>\n"
+        "  (Max 3 numbers per player, no duplicate numbers)\n"
+        "• /roll – Roll the dice\n"
+        "• /reroll – Roll again if no one wins\n\n"
+
+        "🛑 <b>ADMIN COMMANDS</b>\n"
+        "• /stoproll – Disable rolling\n"
+        "• /runroll – Enable rolling\n"
+        "• /cancelroll – Cancel & reset the game\n\n"
+
+        "ℹ️ <b>RULES & NOTES</b>\n"
+        "• No picking while a game is pending\n"
+        "• The game resets only when there is a winner\n"
+        "• Forwarded messages are not allowed\n"
+        "• Telegram links are not allowed\n\n"
+
+        "🔥 Please follow the rules and have fun!"
+    )
+
+    await update.message.reply_text(help_text, parse_mode="HTML")
+    
 import re
 import random
 from datetime import datetime
