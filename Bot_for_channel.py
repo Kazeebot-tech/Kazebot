@@ -314,7 +314,7 @@ async def pick_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     picks[user_id] = user_picks
 
     await update.message.reply_text(
-        f"✅ {user.first_name}, your picks: {user_picks}"
+        f""
     )
 
 
@@ -337,7 +337,7 @@ async def process_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, is_re
             f"🎲 <b>{'Re' if is_reroll else ''}Rolled Number:</b> {dice}\n\n"
             f"🎯 <b>Result:</b>\n"
             f"{'<br>'.join(winners)}\n\n"
-            f"🎉 <b>WINNER(S)!</b>\n"
+            f"🎉 <b>WINNER!</b>\n"
             f"📩 You win! DM @KAZEHAYAMODZ"
         )
 
@@ -359,7 +359,7 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global roll_cooldown_active, roll_cooldown_task
 
     if not roll_enabled:
-        await update.message.reply_text("⛔ Roll stop from admin or owner")
+        await update.message.reply_text("⛔ Roll stop.")
         return
 
     if pending_game or roll_cooldown_active:
@@ -442,8 +442,8 @@ async def cancelroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     picks.clear()
 
     await update.message.reply_text(
-        "🛑 Roll cancelled by admin.\n"
-        "🔄 Game reset. You can now pick and /roll again."
+        "🛑 Roll cancelled.\n"
+        "🔄 Game reset."
     )
 
 
@@ -455,7 +455,7 @@ async def stoproll(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     roll_enabled = False
-    await update.message.reply_text("⛔ Roll has been stopped by admin.")
+    await update.message.reply_text("⛔ Roll has been stop.")
 
 
 # ================= /runroll =================
