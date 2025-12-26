@@ -306,15 +306,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ===== FUN / RANDOM =====
     if re.search(r"\b(gg|good game)\b", text_lower):
-        await msg.reply_text("🎮 GG! Nice play!")
+        await msg.reply_text(" GG! Nice play!")
         return
 
     if re.search(r"\b(oops|oh no|uh oh)\b", text_lower):
-        await msg.reply_text("🤥 Ehh?")
+        await msg.reply_text(" Ehh?")
         return
 
     if re.search(r"\bpalaro\b", text_lower):
-        await msg.reply_text("😂 Mga kupal")
+        await msg.reply_text(" Mga kupal")
         return
 
     # ===== PICK NUMBER (1–6 ONLY) =====
@@ -326,26 +326,42 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 🔒 ONE PICK ONLY
-    if user_id in picks:
-        await msg.reply_text(
-            "🚫 You already picked.\nPlease wait for the game to finish."
-        )
-        return
-
-    number = int(text_lower)
-
-    # ❌ DUPLICATE NUMBER
-    if number in picks.values():
-        await msg.reply_text(
-            "❌ That number is already taken.\nChoose another."
-        )
-        return
-
-    picks[user_id] = number
-
-    await msg.reply_text(
-        f"✅ {user.first_name}, your pick is locked: [{number}] 🔒"
+if user_id in picks:
+    warn = await msg.reply_text(
+        "🚫 You already picked.\nPlease wait for the game to finish."
     )
+    await asyncio.sleep(3)
+    try:
+        await warn.delete()
+    except:
+        pass
+    return
+
+number = int(text_lower)
+
+# ❌ DUPLICATE NUMBER
+if number in picks.values():
+    warn = await msg.reply_text(
+        "❌ That number is already taken.\nChoose another."
+    )
+    await asyncio.sleep(3)
+    try:
+        await warn.delete()
+    except:
+        pass
+    return
+
+# ✅ SUCCESS PICK
+picks[user_id] = number
+
+confirm = await msg.reply_text(
+    f"✅ {user.first_name}, your pick is locked: [{number}] 🔒"
+)
+await asyncio.sleep(3)
+try:
+    await confirm.delete()
+except:
+    pass
 
 # ================= CORE ROLL =================
 async def process_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, is_reroll=False):
