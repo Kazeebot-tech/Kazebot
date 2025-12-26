@@ -256,14 +256,22 @@ from telegram.ext import (
     filters
 )
 
-# ================= GLOBAL DATA =================
-picks = {}          # {user_id: [1,2,3]}
-roll_enabled = True # ON/OFF switch
+# ================= GLOBAL GAME STATE =================
+picks = {}              # {user_id: [numbers]}
+roll_enabled = True     # stoproll / runroll
+pending_game = False    # may roll na walang nanalo
 
 # ================= PICK NUMBER (1–6, MAX 3) =================
 async def pick_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
+    global pending_game
 
+    if pending_game:
+        await update.message.reply_text(
+            "⏳ May pending game pa. Hintayin muna matapos bago mag-pick ulit."
+        )
+        return
+
+    text = update.message.text.strip()
     if text not in ["1", "2", "3", "4", "5", "6"]:
         return
 
@@ -288,45 +296,71 @@ async def pick_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✅ {user.first_name}, picks mo: {user_picks}"
     )
 
+# ================= CORE ROLL LOGIC =================
+async def process_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, is_reroll=False):
+    global pending_game
+
+    dice = random.randint(1, 6)
+    winners = []
+
+    for uid, nums in picks.items():
+        if dice in nums:
+            member = await context.bot.get_chat_member(
+                update.effective_chat.id, uid
+            )
+            winners.append(member.user.mention_html())
+
+    if winners:
+        await update.message.reply_html(
+            f"🎲 <b>{'Re' if is_reroll else ''}Rolled Number:</b> {dice}\n\n"
+            f"🎯 <b>Result (Number {dice}):</b>\n"
+            f"{'<br>'.join(winners)}\n\n"
+            f"🎉 <b>WINNER(S)!</b>\n"
+            f"📩 You win! DM @KAZEHAYAMODZ"
+        )
+
+        picks.clear()
+        pending_game = False  # END GAME ✅
+
+    else:
+        pending_game = True   # MAY PENDING ❗
+        await update.message.reply_text(
+            f"🎲 Rolled Number: {dice}\n"
+            f"😢 Walang nanalo.\n\n"
+            f"🔁 Gamitin ang /reroll para mag-roll ulit."
+        )
+
 # ================= /roll (ALL MEMBERS) =================
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global roll_enabled
+    global roll_enabled, pending_game
 
     if not roll_enabled:
         await update.message.reply_text("⛔ Roll stop from admin or owner")
+        return
+
+    if pending_game:
+        await update.message.reply_text(
+            "⏳ May pending game pa. Gamitin ang /reroll."
+        )
         return
 
     if not picks:
         await update.message.reply_text("❌ Walang sumali sa palaro.")
         return
 
-    dice = random.randint(1, 6)
+    await process_roll(update, context, is_reroll=False)
 
-    winners = [
-        uid for uid, nums in picks.items()
-        if dice in nums
-    ]
+# ================= /reroll (ALL MEMBERS, ONLY IF NO WINNER) =================
+async def reroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global pending_game
 
-    if winners:
-        mentions = []
-        for uid in winners:
-            member = await context.bot.get_chat_member(
-                update.effective_chat.id, uid
-            )
-            mentions.append(member.user.mention_html())
-
-        await update.message.reply_html(
-            f"🎲 <b>Rolled Number:</b> {dice}\n\n"
-            f"🎉 <b>WINNER(S):</b>\n"
-            f"{' '.join(mentions)}\n\n"
-            f"📩 You win! DM @KAZEHAYAMODZ"
-        )
-    else:
+    if not pending_game:
         await update.message.reply_text(
-            f"🎲 Rolled Number: {dice}\n😢 Walang nanalo."
+            "❌ Walang pending game. Gamitin ang /roll."
         )
+        return
 
-    picks.clear()  # reset after roll
+    await process_roll(update, context, is_reroll=True)
 
 # ================= /stoproll (ADMIN & OWNER ONLY) =================
 async def stoproll(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -357,7 +391,7 @@ async def runroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     roll_enabled = True
     await update.message.reply_text("▶️ Roll is now OPEN for all members!")
-
+    
 # ===== MAIN FUNCTION =====
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")  # <-- siguraduhing kapareho sa Render env var
@@ -374,7 +408,8 @@ def main():
     app.add_handler(CommandHandler("roll", roll))
     app.add_handler(CommandHandler("stoproll", stoproll))
     app.add_handler(CommandHandler("runroll", runroll))
-
+    app.add_handler(CommandHandler("reroll", reroll))
+    
     # ===== STATUS UPDATES (welcome new members) =====
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, detect_pogi))
