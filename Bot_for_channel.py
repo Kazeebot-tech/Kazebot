@@ -4,17 +4,16 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, ContextTypes, filters
 
 # ===== WEBKEEP ALIVE =====
-app_web = Flask(__name__)
-OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+app = Flask(__name__)
 
-@app_web.route("/")
+@app.route('/')
 def home():
-    return "Bot is online!"
+    return 'Hello, World!'
 
-def keep_alive():
-    port = int(os.environ.get("PORT", 10000))
-    Thread(target=lambda: app_web.run(host="0.0.0.0", port=port)).start()
-    
+if __name__ == "__main__":
+    # Gamitin ang port na provided ni Render (sa environment variable na `PORT`)
+    port = int(os.environ.get("PORT", 5000))  # Default port fallback kung walang `PORT` env
+    app.run(host='0.0.0.0', port=port)
 # ===== ENV FROM RENDER =====
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID"))
