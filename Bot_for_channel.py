@@ -165,41 +165,6 @@ from datetime import datetime
 import pytz
 from telegram import Update
 from telegram.ext import ContextTypes
-
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message
-    if not msg or not msg.text:
-        return
-
-    text = msg.text.strip().lower()
-    user = update.effective_user
-
-    # ===== AUTO DETECT (POGI / CHAT REPLIES) =====
-    if re.search(r"\bkaze\b", text, re.IGNORECASE):
-        await msg.reply_text("Pogi si Kaze!")
-        return
-
-    if re.search(r"\bkuri\b", text, re.IGNORECASE):
-        await msg.reply_text("Pogi")
-        return
-
-    if re.search(r"\bphia\b", text, re.IGNORECASE):
-        await msg.reply_text("Phia maganda")
-        return
-
-    if re.search(r"\b(hi|hello|hey|hoy|yo)\b", text):
-        await msg.reply_text("👋 Hi! Kumusta ka?")
-        return
-
-    # ===== PICK NUMBER (1–6) =====
-    if text in ["1", "2", "3", "4", "5", "6"]:
-        await pick_number(update, context)
-        return
-        
-    # ===== BOT INFO =====
-    if re.search(r"\b(ano ang pangalan mo|who are you)\b", text):
-        await msg.reply_text("🤖 Ako si Kazebot! Bot na tumutulong sa group na ito.")
-        return
     
 async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -236,13 +201,13 @@ async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
         except:
-            pass
+           pass
 
 import random
 import asyncio
 from telegram import Update
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
     MessageHandler,
     ContextTypes,
@@ -254,9 +219,9 @@ MAX_PLAYERS = 6
 ROLL_WAIT_SECONDS = 15
 
 # ================= GLOBAL GAME STATE =================
-picks = {}                  # {user_id: [numbers]}
-roll_enabled = True         # stoproll / runroll
-pending_game = False        # may roll na walang nanalo
+picks = {}                  # {user_id: number}
+roll_enabled = True
+pending_game = False
 roll_cooldown_active = False
 roll_cooldown_task = None
 
@@ -270,142 +235,180 @@ async def is_admin(update, context):
     return member.status in ["administrator", "creator"]
 
 
-# ================= PICK NUMBER (1–6, MAX 3, NO DUPLICATE) =================
-async def pick_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ================= AUTO DETECT + PICK =================
+import re
+from datetime import datetime
+import pytz
+
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global pending_game, roll_cooldown_active
 
-    if pending_game or roll_cooldown_active:
-        await update.message.reply_text(
-            "⏳ A game is in progress. Please wait."
-        )
+    msg = update.message
+    if not msg or not msg.text:
         return
 
-    text = update.message.text.strip()
-    if text not in ["1", "2", "3", "4", "5", "6"]:
-        return
-
+    text = msg.text.strip()
+    text_lower = text.lower()
     user = update.effective_user
     user_id = user.id
-    number = int(text)
 
-    # 🔴 DUPLICATE CHECK (OTHER PLAYERS)
-    for uid, nums in picks.items():
-        if uid != user_id and number in nums:
-            await update.message.reply_text(
-                "❌ That number is already taken. Please choose another one."
-            )
-            return
+    # ===== NAMES / SPECIAL =====
+    if re.search(r"\bkaze+\b", text_lower, re.IGNORECASE):
+        await msg.reply_text(" Pogi si Kaze!")
+        return
 
-    user_picks = picks.get(user_id, [])
+    if re.search(r"\bkuri\b", text_lower, re.IGNORECASE):
+        await msg.reply_text(" Pogi")
+        return
 
-    if len(user_picks) >= 3:
-        await update.message.reply_text(
-            "❌ You can only pick up to 3 numbers."
+    if re.search(r"\bphia\b", text_lower, re.IGNORECASE):
+        await msg.reply_text("🥹 Phia maganda")
+        return
+
+    # ===== GREETINGS =====
+    if re.search(r"\b(hi|hello|hey|yo|hoy)\b", text_lower):
+        await msg.reply_text("👋 Hi! Kumusta ka?")
+        return
+
+    # ===== THANK YOU =====
+    if re.search(r"\b(thanks|thank you|thx|salamat)\b", text_lower):
+        await msg.reply_text("🙏 Walang anuman! 😊")
+        return
+
+    # ===== GOOD NIGHT =====
+    if re.search(r"\b(good night|gn|gabing gabi)\b", text_lower):
+        await msg.reply_text("🌙 Good night too 😴")
+        return
+
+    # ===== GOOD MORNING =====
+    if re.search(r"\b(good morning|gm|umaga na)\b", text_lower):
+        await msg.reply_text("☀️ Good morning too! 😏")
+        return
+
+    # ===== WHAT TIME =====
+    if re.search(r"\b(anong oras na ba|what time is it|time)\b", text_lower):
+        tz = pytz.timezone("Asia/Manila")
+        now = datetime.now(tz)
+        time_now = now.strftime("%I:%M %p")
+
+        await msg.reply_text(
+            f"⏰ Time check: **{time_now}**",
+            parse_mode="Markdown"
         )
         return
 
-    if number in user_picks:
-        await update.message.reply_text(
-            "⚠️ You already picked that number."
+    # ===== BOT INFO =====
+    if re.search(r"\b(ano ang pangalan mo|who are you)\b", text_lower):
+        await msg.reply_text(
+            "🤖 Ako si Kazebot! Bot na tumutulong sa group na ito."
         )
         return
 
-    user_picks.append(number)
-    picks[user_id] = user_picks
+    # ===== FUN / RANDOM =====
+    if re.search(r"\b(gg|good game)\b", text_lower):
+        await msg.reply_text("🎮 GG! Nice play!")
+        return
 
-    await update.message.reply_text(
-        f""
+    if re.search(r"\b(oops|oh no|uh oh)\b", text_lower):
+        await msg.reply_text("🤥 Ehh?")
+        return
+
+    if re.search(r"\bpalaro\b", text_lower):
+        await msg.reply_text("😂 Mga kupal")
+        return
+
+    # ===== PICK NUMBER (1–6 ONLY) =====
+    if text_lower not in ["1", "2", "3", "4", "5", "6"]:
+        return
+
+    if pending_game or roll_cooldown_active:
+        await msg.reply_text("⏳ Game in progress. Please wait.")
+        return
+
+    # 🔒 ONE PICK ONLY
+    if user_id in picks:
+        await msg.reply_text(
+            "🚫 You already picked.\nPlease wait for the game to finish."
+        )
+        return
+
+    number = int(text_lower)
+
+    # ❌ DUPLICATE NUMBER
+    if number in picks.values():
+        await msg.reply_text(
+            "❌ That number is already taken.\nChoose another."
+        )
+        return
+
+    picks[user_id] = number
+
+    await msg.reply_text(
+        f"✅ {user.first_name}, your pick is locked: [{number}] 🔒"
     )
 
-
-# ================= CORE ROLL LOGIC =================
+# ================= CORE ROLL =================
 async def process_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, is_reroll=False):
     global pending_game, picks
 
     dice = random.randint(1, 6)
     winners = []
 
-    for uid, nums in picks.items():
-        if dice in nums:
-            member = await context.bot.get_chat_member(
-                update.effective_chat.id, uid
-            )
+    for uid, num in picks.items():
+        if num == dice:
+            member = await context.bot.get_chat_member(update.effective_chat.id, uid)
             winners.append(member.user.mention_html())
 
     if winners:
         await update.message.reply_html(
             f"🎲 <b>{'Re' if is_reroll else ''}Rolled Number:</b> {dice}\n\n"
-            f"🎯 <b>Result:</b>\n"
+            f"🎉 <b>WINNER(S):</b>\n"
             f"{'<br>'.join(winners)}\n\n"
-            f"🎉 <b>WINNER!</b>\n"
-            f"📩 You win! DM @KAZEHAYAMODZ"
+            f"📩 DM @KAZEHAYAMODZ"
         )
-
         picks.clear()
         pending_game = False
-
     else:
         pending_game = True
         await update.message.reply_text(
             f"🎲 Rolled Number: {dice}\n"
-            f"🥹 No winners this round.\n\n"
-            f"🔁 Use /reroll to roll again."
+            f"🥹 No winners.\n\n"
+            f"🔁 Use /reroll"
         )
 
 
 # ================= /roll =================
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global roll_enabled, pending_game
-    global roll_cooldown_active, roll_cooldown_task
+    global roll_enabled, roll_cooldown_active, roll_cooldown_task
 
     if not roll_enabled:
-        await update.message.reply_text("⛔ Roll stop.")
+        await update.message.reply_text("⛔ Roll is disabled.")
         return
 
     if pending_game or roll_cooldown_active:
-        await update.message.reply_text(
-            "⏳ Please wait. A roll is already in progress."
-        )
+        await update.message.reply_text("⏳ Please wait.")
         return
 
-    if not picks:
-        await update.message.reply_text("❌ No one has joined the game.")
+    if len(picks) < 2:
+        await update.message.reply_text("❌ At least 2 players required.")
         return
 
-    player_count = len(picks)
-
-    if player_count < 2:
-        await update.message.reply_text(
-            "❌ At least 2 players are required to roll."
-        )
+    if len(picks) >= MAX_PLAYERS:
+        await update.message.reply_text("🔥 Full players! Rolling now...")
+        await process_roll(update, context)
         return
 
-    # 🔥 FULL PLAYERS → INSTANT ROLL
-    if player_count >= MAX_PLAYERS:
-        await update.message.reply_text(
-            "🔥 All players are in! Rolling now..."
-        )
-        await process_roll(update, context, is_reroll=False)
-        return
-
-    # ⏳ WAIT MODE (2–5 PLAYERS)
     roll_cooldown_active = True
-
     await update.message.reply_text(
-        f"⏳ Please wait {ROLL_WAIT_SECONDS} seconds.\n"
-        f"Waiting for other players to join..."
+        f"⏳ Please wait {ROLL_WAIT_SECONDS}s.\nWaiting for other players..."
     )
 
     async def delayed_roll():
         global roll_cooldown_active
         try:
             await asyncio.sleep(ROLL_WAIT_SECONDS)
-
-            if pending_game or not roll_enabled:
-                return
-
-            await process_roll(update, context, is_reroll=False)
-
+            if not pending_game and roll_enabled:
+                await process_roll(update, context)
         finally:
             roll_cooldown_active = False
 
@@ -414,60 +417,46 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ================= /reroll =================
 async def reroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global pending_game
-
     if not pending_game:
-        await update.message.reply_text(
-            "❌ There is no pending game. Use /roll to start."
-        )
+        await update.message.reply_text("❌ No pending game.")
         return
-
     await process_roll(update, context, is_reroll=True)
 
 
-# ================= /cancelroll (ADMIN ONLY) =================
+# ================= /cancelroll =================
 async def cancelroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global pending_game, picks
-    global roll_cooldown_active, roll_cooldown_task
+    global picks, pending_game, roll_cooldown_active, roll_cooldown_task
 
     if not await is_admin(update, context):
         return
 
     if roll_cooldown_task:
         roll_cooldown_task.cancel()
-        roll_cooldown_task = None
 
-    roll_cooldown_active = False
-    pending_game = False
     picks.clear()
+    pending_game = False
+    roll_cooldown_active = False
 
     await update.message.reply_text(
-        "🛑 Roll cancelled.\n"
-        "🔄 Game reset."
+        "🛑 Game cancelled.\n🔄 Game reset."
     )
 
 
 # ================= /stoproll =================
 async def stoproll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global roll_enabled
-
-    if not await is_admin(update, context):
-        return
-
-    roll_enabled = False
-    await update.message.reply_text("⛔ Roll has been stop.")
+    if await is_admin(update, context):
+        roll_enabled = False
+        await update.message.reply_text("⛔ Roll stopped.")
 
 
 # ================= /runroll =================
 async def runroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global roll_enabled
-
-    if not await is_admin(update, context):
-        return
-
-    roll_enabled = True
-    await update.message.reply_text("▶️ Roll is now enabled for all members!")
-    
+    if await is_admin(update, context):
+        roll_enabled = True
+        await update.message.reply_text("▶️ Roll enabled!")
+                        
 # ===== MAIN FUNCTION =====
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
