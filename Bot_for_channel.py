@@ -204,6 +204,10 @@ async def detect_pogi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if re.search(r"\b(oops|oh no|uh oh)\b", text):
         await msg.reply_text("🤥 Ehh?")
         return
+
+    if re.search(r"\bPalaro\b", text):
+        await msg.reply_text("Mga kupal")
+        return
     
 async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
