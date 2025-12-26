@@ -261,7 +261,15 @@ picks = {}              # {user_id: [numbers]}
 roll_enabled = True     # stoproll / runroll
 pending_game = False    # may roll na walang nanalo
 
-# ================= PICK NUMBER (1–6, MAX 3) =================
+# ================= HELPER: CHECK ADMIN =================
+async def is_admin(update, context):
+    member = await context.bot.get_chat_member(
+        update.effective_chat.id,
+        update.effective_user.id
+    )
+    return member.status in ["administrator", "creator"]
+
+# ================= PICK NUMBER (1–6, MAX 3, NO DUPLICATE) =================
 async def pick_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global pending_game
 
@@ -278,6 +286,14 @@ async def pick_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     number = int(text)
+
+    # 🔴 CHECK DUPLICATE NUMBER (OTHER PLAYERS)
+    for uid, nums in picks.items():
+        if uid != user_id and number in nums:
+            await update.message.reply_text(
+                "❌ Bawal duplicate number, please palitan mo yung number mo."
+            )
+            return
 
     user_picks = picks.get(user_id, [])
 
@@ -320,10 +336,10 @@ async def process_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, is_re
         )
 
         picks.clear()
-        pending_game = False  # END GAME ✅
+        pending_game = False
 
     else:
-        pending_game = True   # MAY PENDING ❗
+        pending_game = True
         await update.message.reply_text(
             f"🎲 Rolled Number: {dice}\n"
             f"😢 Walang nanalo.\n\n"
@@ -350,7 +366,7 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await process_roll(update, context, is_reroll=False)
 
-# ================= /reroll (ALL MEMBERS, ONLY IF NO WINNER) =================
+# ================= /reroll (ALL MEMBERS) =================
 async def reroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global pending_game
 
@@ -362,16 +378,26 @@ async def reroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await process_roll(update, context, is_reroll=True)
 
+# ================= /cancelroll (ADMIN & OWNER ONLY) =================
+async def cancelroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global pending_game, picks
+
+    if not await is_admin(update, context):
+        return
+
+    picks.clear()
+    pending_game = False
+
+    await update.message.reply_text(
+        "🛑 Roll has been CANCELLED by admin.\n"
+        "🔄 Game reset. Pwede na ulit mag-pick at /roll."
+    )
+
 # ================= /stoproll (ADMIN & OWNER ONLY) =================
 async def stoproll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global roll_enabled
 
-    member = await context.bot.get_chat_member(
-        update.effective_chat.id,
-        update.effective_user.id
-    )
-
-    if member.status not in ["administrator", "creator"]:
+    if not await is_admin(update, context):
         return
 
     roll_enabled = False
@@ -381,17 +407,12 @@ async def stoproll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def runroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global roll_enabled
 
-    member = await context.bot.get_chat_member(
-        update.effective_chat.id,
-        update.effective_user.id
-    )
-
-    if member.status not in ["administrator", "creator"]:
+    if not await is_admin(update, context):
         return
 
     roll_enabled = True
     await update.message.reply_text("▶️ Roll is now OPEN for all members!")
-    
+
 # ===== MAIN FUNCTION =====
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")  # <-- siguraduhing kapareho sa Render env var
@@ -409,6 +430,7 @@ def main():
     app.add_handler(CommandHandler("stoproll", stoproll))
     app.add_handler(CommandHandler("runroll", runroll))
     app.add_handler(CommandHandler("reroll", reroll))
+    app.add_handler(CommandHandler("cancelroll", cancelroll))
     
     # ===== STATUS UPDATES (welcome new members) =====
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
