@@ -141,6 +141,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(help_text, parse_mode="HTML")
 
+import re
+import random
+from datetime import datetime
+import pytz
+from telegram import Update
+from telegram.ext import ContextTypes
+
 async def detect_pogi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg or not msg.text:
@@ -148,65 +155,68 @@ async def detect_pogi(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = msg.text.lower()
 
-    if re.search(r"\bkaze\b", text):
+    # ===== NAMES / SPECIAL =====
+    if re.search(r"\bkaze\b", text, re.IGNORECASE):
         await msg.reply_text("Pogi si Kaze!")
         return
 
-    if re.search(r"\bkuri\b", text):
+    if re.search(r"\bkuri\b", text, re.IGNORECASE):
         await msg.reply_text("Pogi")
         return
-        
-    if re.search(r"\bphia\b", text):
+
+    if re.search(r"\bphia\b", text, re.IGNORECASE):
         await msg.reply_text("Phia maganda")
         return
 
     # ===== HI / HELLO =====
     if re.search(r"\b(hi|hello|hey|hoy|yo)\b", text):
-        await update.message.reply_text("👋 Hi! Kumusta ka?")
+        await msg.reply_text("👋 Hi! Kumusta ka?")
         return
 
     # ===== THANK YOU =====
     if re.search(r"\b(thanks|thank you|thx|salamat)\b", text):
-        await update.message.reply_text("🙏 Walang anuman! 😊")
+        await msg.reply_text("🙏 Walang anuman! 😊")
         return
 
     # ===== GOOD NIGHT =====
     if re.search(r"\b(good night|gn|gabing gabi)\b", text):
-        await update.message.reply_text("🌙 Good night too😴")
+        await msg.reply_text("🌙 Good night too 😴")
         return
 
     # ===== GOOD MORNING =====
     if re.search(r"\b(good morning|gm|umaga na)\b", text):
-        await update.message.reply_text("☀️ Good morning too!😏")
+        await msg.reply_text("☀️ Good morning too! 😏")
         return
 
     # ===== WHAT TIME =====
-    if re.search(r"\b(anong oras naba?|time|What time is it?)\b", text):
+    if re.search(r"\b(anong oras na ba\?|what time is it|time)\b", text):
         tz = pytz.timezone("Asia/Manila")
         now = datetime.now(tz)
         time_now = now.strftime("%I:%M %p")
 
-        await update.message.reply_text(
+        await msg.reply_text(
             f"⏰ Time check: **{time_now}**",
             parse_mode="Markdown"
         )
         return
 
+    # ===== BOT INFO =====
     if re.search(r"\b(ano ang pangalan mo|who are you)\b", text):
-        await msg.reply_text("🤖 Ako si Kazebot! Bot na tumutulong sa channel na ito.")
+        await msg.reply_text("🤖 Ako si Kazebot! Bot na tumutulong sa group na ito.")
         return
 
     # ===== FUN / RANDOM =====
-    if re.search(r"\b(gg|good game)\b", text):
-        await msg.reply_text("🎮 GG! Nice play!")
+    if re.search(r"\b(gg|good game)\b", text, re.IGNORECASE):
+        replies = ["🎮 GG! Nice play!", "🔥 Solid GG!", "👏 Well played!"]
+        await msg.reply_text(random.choice(replies))
         return
 
-    if re.search(r"\b(oops|oh no|uh oh)\b", text):
+    if re.search(r"\b(oops|oh no|uh oh)\b", text, re.IGNORECASE):
         await msg.reply_text("🤥 Ehh?")
         return
 
-    if re.search(r"\bPalaro\b", text):
-        await msg.reply_text("Mga kupal")
+    if re.search(r"\bpalaro\b", text, re.IGNORECASE):
+        await msg.reply_text("Mga kupal 😆")
         return
     
 async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -275,7 +285,7 @@ async def pick_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if pending_game:
         await update.message.reply_text(
-            "⏳ May pending game pa. Hintayin muna matapos bago mag-pick ulit."
+            "⏳ An active game is still ongoing. Please wait for it to end before picking again."
         )
         return
 
@@ -291,25 +301,25 @@ async def pick_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for uid, nums in picks.items():
         if uid != user_id and number in nums:
             await update.message.reply_text(
-                "❌ Bawal duplicate number, please palitan mo yung number mo."
+                "❌ That number is already taken. Please choose another one."
             )
             return
 
     user_picks = picks.get(user_id, [])
 
     if len(user_picks) >= 3:
-        await update.message.reply_text("❌ Max 3 numbers lang pwede mong piliin.")
+        await update.message.reply_text("❌ The maximum number of choices allowed is 3.")
         return
 
     if number in user_picks:
-        await update.message.reply_text("⚠️ Napili mo na yan.")
+        await update.message.reply_text("⚠️ That number is already selected.")
         return
 
     user_picks.append(number)
     picks[user_id] = user_picks
 
     await update.message.reply_text(
-        f"✅ {user.first_name}, picks mo: {user_picks}"
+        f"✅ {user.first_name}, Your pick: {user_picks}"
     )
 
 # ================= CORE ROLL LOGIC =================
@@ -342,8 +352,8 @@ async def process_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, is_re
         pending_game = True
         await update.message.reply_text(
             f"🎲 Rolled Number: {dice}\n"
-            f"😢 Walang nanalo.\n\n"
-            f"🔁 Gamitin ang /reroll para mag-roll ulit."
+            f"🙉 No winners this round.\n\n"
+            f"🔁 Use /reroll to roll again."
         )
 
 # ================= /roll (ALL MEMBERS) =================
@@ -356,12 +366,12 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if pending_game:
         await update.message.reply_text(
-            "⏳ May pending game pa. Gamitin ang /reroll."
+            "⏳ There is a pending game. Use /reroll to continue."
         )
         return
 
     if not picks:
-        await update.message.reply_text("❌ Walang sumali sa palaro.")
+        await update.message.reply_text("❌ No one has joined the game.")
         return
 
     await process_roll(update, context, is_reroll=False)
@@ -372,7 +382,7 @@ async def reroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not pending_game:
         await update.message.reply_text(
-            "❌ Walang pending game. Gamitin ang /roll."
+            "❌ There is no pending game. Use /roll to start."
         )
         return
 
@@ -390,7 +400,7 @@ async def cancelroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🛑 Roll has been CANCELLED by admin.\n"
-        "🔄 Game reset. Pwede na ulit mag-pick at /roll."
+        "🔄 The game has been reset. You can now pick numbers and use /roll again."
     )
 
 # ================= /stoproll (ADMIN & OWNER ONLY) =================
@@ -431,7 +441,7 @@ def main():
     app.add_handler(CommandHandler("runroll", runroll))
     app.add_handler(CommandHandler("reroll", reroll))
     app.add_handler(CommandHandler("cancelroll", cancelroll))
-    
+
     # ===== STATUS UPDATES (welcome new members) =====
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, detect_pogi))
