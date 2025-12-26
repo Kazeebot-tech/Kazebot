@@ -459,17 +459,42 @@ async def runroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def switch_kaze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global WINNER_DM
 
+    # OWNER always allowed
     if OWNER_ID and update.effective_user.id == OWNER_ID:
         WINNER_DM = "@KAZEHAYAMODZ"
-        await update.message.reply_text("✅ Successfully switch")
+        msg = await update.message.reply_text("✅ Switch Successfully")
+        await asyncio.sleep(3)
+        await msg.delete()
         return
 
+    # Admin only
     if not await is_admin(update, context):
-        await update.message.reply_text("🚫 Admin only command.")
         return
 
     WINNER_DM = "@KAZEHAYAMODZ"
-    await update.message.reply_text("✅ Successfully switch")
+    msg = await update.message.reply_text("✅ Switch Successfully")
+    await asyncio.sleep(3)
+    await msg.delete()
+
+async def switch_kuri(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global WINNER_DM
+
+    # OWNER always allowed
+    if OWNER_ID and update.effective_user.id == OWNER_ID:
+        WINNER_DM = "@Kurikongofficial"
+        msg = await update.message.reply_text("✅ Switch Successfully")
+        await asyncio.sleep(3)
+        await msg.delete()
+        return
+
+    # Admin only
+    if not await is_admin(update, context):
+        return
+
+    WINNER_DM = "@Kurikongofficial"
+    msg = await update.message.reply_text("✅ Switch Successfully")
+    await asyncio.sleep(3)
+    await msg.delete()
     
 # ===== MAIN FUNCTION =====
 def main():
@@ -490,9 +515,9 @@ def main():
     app.add_handler(CommandHandler("stoproll", stoproll))
     app.add_handler(CommandHandler("runroll", runroll))
     app.add_handler(CommandHandler("cancelroll", cancelroll))
-    app.add_handler(CommandHandler("switchkuri", switchkuri))
-    app.add_handler(CommandHandler("switchkaze", switchkaze))
-
+    app.add_handler(CommandHandler("switchkuri", switch_kuri))
+    app.add_handler(CommandHandler("switchkaze", switch_kaze))
+    
     # ===== WELCOME =====
     app.add_handler(
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome)
