@@ -246,6 +246,118 @@ async def report_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
+import random
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
+
+# ================= GLOBAL DATA =================
+picks = {}          # {user_id: [1,2,3]}
+roll_enabled = True # ON/OFF switch
+
+# ================= PICK NUMBER (1–6, MAX 3) =================
+async def pick_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+
+    if text not in ["1", "2", "3", "4", "5", "6"]:
+        return
+
+    user = update.effective_user
+    user_id = user.id
+    number = int(text)
+
+    user_picks = picks.get(user_id, [])
+
+    if len(user_picks) >= 3:
+        await update.message.reply_text("❌ Max 3 numbers lang pwede mong piliin.")
+        return
+
+    if number in user_picks:
+        await update.message.reply_text("⚠️ Napili mo na yan.")
+        return
+
+    user_picks.append(number)
+    picks[user_id] = user_picks
+
+    await update.message.reply_text(
+        f"✅ {user.first_name}, picks mo: {user_picks}"
+    )
+
+# ================= /roll (ALL MEMBERS) =================
+async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global roll_enabled
+
+    if not roll_enabled:
+        await update.message.reply_text("⛔ Roll stop from admin or owner")
+        return
+
+    if not picks:
+        await update.message.reply_text("❌ Walang sumali sa palaro.")
+        return
+
+    dice = random.randint(1, 6)
+
+    winners = [
+        uid for uid, nums in picks.items()
+        if dice in nums
+    ]
+
+    if winners:
+        mentions = []
+        for uid in winners:
+            member = await context.bot.get_chat_member(
+                update.effective_chat.id, uid
+            )
+            mentions.append(member.user.mention_html())
+
+        await update.message.reply_html(
+            f"🎲 <b>Rolled Number:</b> {dice}\n\n"
+            f"🎉 <b>WINNER(S):</b>\n"
+            f"{' '.join(mentions)}\n\n"
+            f"📩 You win! DM @KAZEHAYAMODZ"
+        )
+    else:
+        await update.message.reply_text(
+            f"🎲 Rolled Number: {dice}\n😢 Walang nanalo."
+        )
+
+    picks.clear()  # reset after roll
+
+# ================= /stoproll (ADMIN & OWNER ONLY) =================
+async def stoproll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global roll_enabled
+
+    member = await context.bot.get_chat_member(
+        update.effective_chat.id,
+        update.effective_user.id
+    )
+
+    if member.status not in ["administrator", "creator"]:
+        return
+
+    roll_enabled = False
+    await update.message.reply_text("⛔ Roll has been STOPPED by admin/owner.")
+
+# ================= /runroll (ADMIN & OWNER ONLY) =================
+async def runroll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global roll_enabled
+
+    member = await context.bot.get_chat_member(
+        update.effective_chat.id,
+        update.effective_user.id
+    )
+
+    if member.status not in ["administrator", "creator"]:
+        return
+
+    roll_enabled = True
+    await update.message.reply_text("▶️ Roll is now OPEN for all members!")
+
 # ===== MAIN FUNCTION =====
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")  # <-- siguraduhing kapareho sa Render env var
@@ -258,6 +370,10 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("report", report_user))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, pick_number))
+    app.add_handler(CommandHandler("roll", roll))
+    app.add_handler(CommandHandler("stoproll", stoproll))
+    app.add_handler(CommandHandler("runroll", runroll))
 
     # ===== STATUS UPDATES (welcome new members) =====
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome))
