@@ -216,7 +216,7 @@ from telegram.ext import (
 
 # ================= CONFIG =================
 MAX_PLAYERS = 6
-ROLL_WAIT_SECONDS = 60
+ROLL_WAIT_SECONDS = 0
 
 # ================= GLOBAL GAME STATE =================
 picks = {}                  # {user_id: number}
@@ -255,11 +255,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ===== NAMES / SPECIAL =====
     if re.search(r"\bkaze+\b", text_lower):
-        await msg.reply_text("🔥 Pogi si Kaze!")
+        await msg.reply_text(" Pogi si Kaze!")
         return
 
     if re.search(r"\bkuri\b", text_lower):
-        await msg.reply_text("😎 Pogi")
+        await msg.reply_text(" Pogi")
         return
 
     if re.search(r"\bphia\b", text_lower):
@@ -305,7 +305,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if re.search(r"\bpalaro\b", text_lower):
-        await msg.reply_text("🤣 Mga kupal")
+        await msg.reply_text(" Mga kupal")
         return
 
     # ===== PICK NUMBER (1–6 ONLY) =====
