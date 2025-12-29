@@ -30,21 +30,24 @@ def msg_is_forwarded(msg) -> bool:
         or getattr(msg, "forward_sender_name", None)
     )
 
-def msg_has_tme_link(msg) -> bool:
+def msg_has_link(msg) -> bool:
     text = (msg.text or msg.caption or "")[:4096]
     t = text.lower()
 
-    # Block only t.me or telegram.me links in text
-    if "t.me/" in t or "telegram.me/" in t:
+    # common link patterns
+    if re.search(r"(https?://|www\.|t\.me/|telegram\.me/)", t):
         return True
 
-    # Check clickable links (entities)
+    # plain domains without http(s), ex: google.com
+    if re.search(r"\b[a-z0-9-]+\.(com|net|org|io|co|me|gg|app|xyz|site|dev|ph)\b", t):
+        return True
+
+    # telegram entities (clickable links)
     entities = (msg.entities or []) + (msg.caption_entities or [])
     for e in entities:
-        if e.type in (MessageEntity.URL, MessageEntity.TEXT_LINK):
-            url = getattr(e, "url", "") or ""
-            if "t.me/" in url.lower() or "telegram.me/" in url.lower():
-                return True
+        if e.type in (MessageEntityType.URL, MessageEntityType.TEXT_LINK):
+            return True
+
     return False
 
 async def send_temp_warning(chat, text: str, seconds: int = 5):
@@ -55,7 +58,7 @@ async def send_temp_warning(chat, text: str, seconds: int = 5):
     except Exception:
         pass
 
-# ===== MODERATION FUNCTION =====
+
 async def moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg or not msg.from_user:
@@ -63,29 +66,26 @@ async def moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = msg.from_user.id
 
-    # OWNER exception
+    # OWNER exception: ikaw pwede mag-forward at mag-link
     if OWNER_ID and user_id == OWNER_ID:
         return
 
-    # ADMIN / CREATOR exception
-    try:
-        member = await context.bot.get_chat_member(msg.chat.id, user_id)
-        if member.status in ("administrator", "creator"):
-            return
-    except Exception:
-        pass
+    # Optional: if you want admins also allowed, uncomment below:
+    # member = await context.bot.get_chat_member(msg.chat.id, user_id)
+    # if member.status in ("administrator", "creator"):
+    #     return
 
     try:
-        # DELETE forwarded messages
+        # delete forwarded messages
         if msg_is_forwarded(msg):
             await msg.delete()
-            await send_temp_warning(msg.chat, "⚠️ Forward messages are not allowed!")
+            await send_temp_warning(msg.chat, "⚠️ Forward messages are not allowed to prevent ads/spam.")
             return
 
-        # DELETE t.me links
-        if msg_has_tme_link(msg):
+        # delete link messages (kahit normal chat)
+        if msg_has_link(msg):
             await msg.delete()
-            await send_temp_warning(msg.chat, "⚠️ t.me links are not allowed!")
+            await send_temp_warning(msg.chat, "⚠️ Links are not allowed kupal!")
             return
 
     except Exception as e:
