@@ -66,31 +66,35 @@ async def moderate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = msg.from_user.id
 
-    # OWNER exception: ikaw pwede mag-forward at mag-link
+    # OWNER bypass
     if OWNER_ID and user_id == OWNER_ID:
         return
 
-    # Optional: if you want admins also allowed, uncomment below:
-    # member = await context.bot.get_chat_member(msg.chat.id, user_id)
-    # if member.status in ("administrator", "creator"):
-    #     return
+    # Admin bypass
+    member = await context.bot.get_chat_member(msg.chat.id, user_id)
+    if member.status in ("administrator", "creator"):
+        return
 
     try:
-        # delete forwarded messages
         if msg_is_forwarded(msg):
             await msg.delete()
-            await send_temp_warning(msg.chat, "⚠️ Forward messages are not allowed to prevent ads/spam.")
+            await send_temp_warning(
+                msg.chat,
+                "⚠️ Forwarded messages are not allowed."
+            )
             return
 
-        # delete link messages (kahit normal chat)
         if msg_has_link(msg):
             await msg.delete()
-            await send_temp_warning(msg.chat, "⚠️ Links are not allowed kupal!")
+            await send_temp_warning(
+                msg.chat,
+                "🚫 Ads / links are not allowed."
+            )
             return
 
     except Exception as e:
         print("moderate error:", e)
-
+        
 # ===== START COMMAND =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
