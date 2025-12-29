@@ -527,31 +527,30 @@ def main():
     app.add_handler(CommandHandler("cancelroll", cancelroll))
     app.add_handler(CommandHandler("switchkuri", switch_kuri))
     app.add_handler(CommandHandler("switchkaze", switch_kaze))
-    
+
     # ===== WELCOME =====
     app.add_handler(
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome)
     )
 
-    # ===== MAIN TEXT HANDLER (AUTO-DETECT + PICK) =====
-    app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text)
-    )
-
-    # ===== MODERATION LAST (CATCH-ALL) =====
+    # ===== 🚨 MODERATION FIRST =====
     app.add_handler(
         MessageHandler(
             (filters.TEXT | filters.CAPTION | filters.FORWARDED) & ~filters.COMMAND,
             moderate
-        )
+        ),
+        group=0
+    )
+
+    # ===== MAIN TEXT HANDLER =====
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text),
+        group=1
     )
 
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
-# ===== RUN =====
 if __name__ == "__main__":
     keep_alive()
     main()
-
-    
