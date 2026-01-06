@@ -3,23 +3,25 @@ import json
 import random
 import string
 from datetime import datetime, timedelta
-import asyncio
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Application
 import uvicorn
 
 # =========================
 # CONFIG
 # =========================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))  # numeric Telegram ID
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
 KEY_PREFIX = "MOD"
 KEY_DB = "keys.json"
 
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"  # Secure path with token
+WEBHOOK_URL = f"https://your-service-name.onrender.com{WEBHOOK_PATH}"  # Palitan mo yung your-service-name
+
 # =========================
-# UTILS
+# UTILS (same as yours)
 # =========================
 def load_keys():
     try:
@@ -37,7 +39,7 @@ def generate_key():
     return f"{KEY_PREFIX}-{rand}"
 
 # =========================
-# TELEGRAM BOT HANDLERS
+# TELEGRAM BOT HANDLERS (same)
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -52,104 +54,60 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def genkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
-
-    if not context.args:
-        await update.message.reply_text("Usage: /genkey <days>")
-        return
-
-    try:
-        days = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("❌ Invalid number")
-        return
-
-    key = generate_key()
-    db = load_keys()
-    db[key] = {
-        "expire": (datetime.now() + timedelta(days=days)).isoformat(),
-        "used": False
-    }
-    save_keys(db)
-
-    await update.message.reply_text(
-        f"✅ KEY GENERATED\n\n🔑 {key}\n⏳ {days} days"
-    )
+    # ... (same as your code)
 
 async def revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
-
-    if not context.args:
-        await update.message.reply_text("Usage: /revoke <key>")
-        return
-
-    key = context.args[0]
-    db = load_keys()
-    if key not in db:
-        await update.message.reply_text("❌ Key not found")
-        return
-
-    del db[key]
-    save_keys(db)
-    await update.message.reply_text("🗑️ Key revoked")
+    # ... (same)
 
 async def listkeys(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        return
-
-    db = load_keys()
-    if not db:
-        await update.message.reply_text("No keys.")
-        return
-
-    msg = "🔑 ACTIVE KEYS:\n\n"
-    for k, v in db.items():
-        msg += f"{k}\nExpire: {v['expire']}\n\n"
-
-    await update.message.reply_text(msg)
+    # ... (same)
 
 # =========================
-# FASTAPI ENDPOINT FOR LGL MOD MENU
+# FASTAPI APP
 # =========================
 api = FastAPI()
 
+# Your existing /check endpoint
 @api.get("/check")
 def check_key(key: str):
-    db = load_keys()
-    if key not in db:
-        return {"status": "INVALID"}
+    # ... (same as your code)
 
-    info = db[key]
-    if datetime.fromisoformat(info["expire"]) < datetime.now():
-        return {"status": "EXPIRED"}
+# Webhook handler for Telegram updates
+@api.post(WEBHOOK_PATH)
+async def telegram_webhook(request: Request, application: Application):
+    """Handle incoming Telegram updates"""
+    update = Update.de_json(await request.json(), application.bot)
+    await application.process_update(update)
+    return {"ok": True}
 
-    return {"status": "VALID"}
+# Optional: Health check endpoint para sure sa Render
+@api.get("/")
+async def health():
+    return {"status": "ok"}
 
 # =========================
-# MAIN ASYNC ENTRY
+# MAIN
 # =========================
 async def main():
-    # Setup Telegram bot
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("genkey", genkey))
-    app.add_handler(CommandHandler("revoke", revoke))
-    app.add_handler(CommandHandler("listkeys", listkeys))
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Setup FastAPI server
-    api_port = int(os.environ.get("PORT", 8000))
-    api_server = uvicorn.Server(
-        uvicorn.Config(api, host="0.0.0.0", port=api_port, log_level="info")
-    )
+    # Add handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("genkey", genkey))
+    application.add_handler(CommandHandler("revoke", revoke))
+    application.add_handler(CommandHandler("listkeys", listkeys))
 
-    # Run bot and API concurrently
-    await asyncio.gather(
-        app.run_polling(),
-        api_server.serve()
-    )
+    # Inject application to FastAPI routes (dependency-like)
+    api.state.application = application
 
-# =========================
-# RUN
-# =========================
+    # Set webhook once on startup
+    await application.bot.set_webhook(url=WEBHOOK_URL)
+
+    # Run FastAPI with Uvicorn
+    config = uvicorn.Config(api, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    server = uvicorn.Server(config)
+    await server.serve()
+
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
