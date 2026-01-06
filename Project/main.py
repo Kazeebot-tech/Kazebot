@@ -150,6 +150,5 @@ async def main():
     )
 
 if __name__ == "__main__":
-    # optional, para local testing
-    keep_alive()  
-    asyncio.run(main())
+    keep_alive()
+    main()  # ❌ WRONG
