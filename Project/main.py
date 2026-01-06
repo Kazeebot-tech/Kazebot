@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import random
@@ -6,28 +7,22 @@ from datetime import datetime, timedelta
 
 from fastapi import FastAPI
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes
-)
-import threading
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import uvicorn
 
-# =========================
-# CONFIG (IKAW MAG EDIT)
-# =========================
+# CONFIG
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 ADMIN_ID = int(os.environ.get("ADMIN_ID"))
 KEY_PREFIX = "MOD"
 KEY_DB = "keys.json"
 
-# =========================
 # UTILS
-# =========================
 def load_keys():
-    with open(KEY_DB, "r") as f:
-        return json.load(f)
+    try:
+        with open(KEY_DB, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
 def save_keys(data):
     with open(KEY_DB, "w") as f:
@@ -37,9 +32,7 @@ def generate_key():
     rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
     return f"{KEY_PREFIX}-{rand}"
 
-# =========================
-# TELEGRAM BOT
-# =========================
+# TELEGRAM BOT HANDLERS
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
@@ -58,9 +51,13 @@ async def genkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Usage: /genkey <days>")
         return
 
-    days = int(context.args[0])
-    key = generate_key()
+    try:
+        days = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ Invalid number")
+        return
 
+    key = generate_key()
     db = load_keys()
     db[key] = {
         "expire": (datetime.now() + timedelta(days=days)).isoformat(),
@@ -68,11 +65,7 @@ async def genkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
     save_keys(db)
 
-    await update.message.reply_text(
-        f"✅ KEY GENERATED\n\n"
-        f"🔑 {key}\n"
-        f"⏳ {days} days"
-    )
+    await update.message.reply_text(f"✅ KEY GENERATED\n\n🔑 {key}\n⏳ {days} days")
 
 async def revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -84,7 +77,6 @@ async def revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     key = context.args[0]
     db = load_keys()
-
     if key not in db:
         await update.message.reply_text("❌ Key not found")
         return
@@ -108,23 +100,12 @@ async def listkeys(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(msg)
 
-def run_bot():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("genkey", genkey))
-    app.add_handler(CommandHandler("revoke", revoke))
-    app.add_handler(CommandHandler("listkeys", listkeys))
-    app.run_polling()
-
-# =========================
-# API (FOR MOD MENU)
-# =========================
+# API FOR MOD MENU
 api = FastAPI()
 
 @api.get("/check")
 def check_key(key: str):
     db = load_keys()
-
     if key not in db:
         return {"status": "INVALID"}
 
@@ -134,12 +115,25 @@ def check_key(key: str):
 
     return {"status": "VALID"}
 
-def run_api():
-    uvicorn.run(api, host="0.0.0.0", port=8000)
+# MAIN ASYNC ENTRY
+async def main():
+    # Start bot
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("genkey", genkey))
+    app.add_handler(CommandHandler("revoke", revoke))
+    app.add_handler(CommandHandler("listkeys", listkeys))
 
-# =========================
-# MAIN
-# =========================
+    # Run bot and API concurrently
+    api_port = int(os.environ.get("PORT", 8000))
+    api_task = uvicorn.Server(
+        uvicorn.Config(api, host="0.0.0.0", port=api_port, log_level="info")
+    )
+
+    await asyncio.gather(
+        app.run_polling(),
+        api_task.serve()
+    )
+
 if __name__ == "__main__":
-    threading.Thread(target=run_api).start()
-    run_bot()
+    asyncio.run(main())
