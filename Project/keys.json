@@ -1,0 +1,6 @@
+def load_keys():
+    try:
+        with open(KEY_DB, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
