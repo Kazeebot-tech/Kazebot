@@ -18,7 +18,7 @@ KEY_PREFIX = "MOD"
 KEY_DB = "keys.json"
 
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"  # Secure path with token
-WEBHOOK_URL = f"https://your-service-name.onrender.com{WEBHOOK_PATH}"  # Palitan mo yung your-service-name
+WEBHOOK_URL = f"https://kazebot-kybb.onrender.com{WEBHOOK_PATH}"  # Palitan mo yung your-service-name
 
 # =========================
 # UTILS (same as yours)
