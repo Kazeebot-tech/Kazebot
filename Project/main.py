@@ -10,9 +10,11 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import uvicorn
 
-# CONFIG (Environment Variables)
+# =========================
+# CONFIG
+# =========================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))  # numeric Telegram ID
 KEY_PREFIX = "MOD"
 KEY_DB = "keys.json"
 
@@ -69,7 +71,9 @@ async def genkey(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
     save_keys(db)
 
-    await update.message.reply_text(f"✅ KEY GENERATED\n\n🔑 {key}\n⏳ {days} days")
+    await update.message.reply_text(
+        f"✅ KEY GENERATED\n\n🔑 {key}\n⏳ {days} days"
+    )
 
 async def revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -105,7 +109,7 @@ async def listkeys(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg)
 
 # =========================
-# API FOR LGL MOD MENU
+# FASTAPI ENDPOINT FOR LGL MOD MENU
 # =========================
 api = FastAPI()
 
@@ -125,19 +129,20 @@ def check_key(key: str):
 # MAIN ASYNC ENTRY
 # =========================
 async def main():
-    # Start Telegram Bot
+    # Setup Telegram bot
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("genkey", genkey))
     app.add_handler(CommandHandler("revoke", revoke))
     app.add_handler(CommandHandler("listkeys", listkeys))
 
-    # Run bot and API concurrently
+    # Setup FastAPI server
     api_port = int(os.environ.get("PORT", 8000))
     api_server = uvicorn.Server(
         uvicorn.Config(api, host="0.0.0.0", port=api_port, log_level="info")
     )
 
+    # Run bot and API concurrently
     await asyncio.gather(
         app.run_polling(),
         api_server.serve()
