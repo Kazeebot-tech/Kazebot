@@ -23,7 +23,7 @@ KEY_DB = "keys.json"
 KEY_PREFIX = "LGL"
 
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-WEBHOOK_URL = f"https://kazebot-kybb.onrender.com{WEBHOOK_PATH}"
+WEBHOOK_URL = f"https://kazebot-4jkt.onrender.com{WEBHOOK_PATH}"
 
 # ================= UTILS =================
 def load_keys():
