@@ -3,9 +3,6 @@ import logging
 import secrets
 import string
 import requests
-import asyncio
-from threading import Thread
-from flask import Flask
 from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
