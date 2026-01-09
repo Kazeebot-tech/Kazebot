@@ -1,30 +1,27 @@
+import os
 import logging
 import secrets
 import string
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Ilisi ni dai
-TELEGRAM_TOKEN = '8497474711:AAGkb_orRkckaIfz3IfIrBi4WK7CGhc-A64'
-CHAT_ID = 7201369115  # Imong exact user ID
+# Load environment variables
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+CHAT_ID = int(os.environ.get("CHAT_ID"))
+RENTRY_SLUG = os.environ.get("RENTRY_SLUG")
+RENTRY_URL = f"https://rentry.co/{RENTRY_SLUG}"
+RAW_URL = f"https://rentry.co/{RENTRY_SLUG}/raw"
+edit_code = os.environ.get("RENTRY_EDIT_CODE")
 
-# Fixed Rentry
-RENTRY_SLUG = 'kazehayakun-keyssss'
-RENTRY_URL = f'https://rentry.co/{RENTRY_SLUG}'
-RAW_URL = f'https://rentry.co/{RENTRY_SLUG}/raw'
-
-# Secret edit code
-edit_code = 'Pogi si kaze'
-
-# Random key with "Kaze-" prefix + 6-7 random chars
-PREFIX = 'Kaze-'
+# Key generation settings
+PREFIX = "Kaze-"
 RANDOM_LENGTH_MIN = 6
 RANDOM_LENGTH_MAX = 7
 KEY_CHARS = string.ascii_letters + string.digits
 
-current_interval_seconds = 60  # Default 1mins
+current_interval_seconds = 60
 job = None
 
 def generate_short_key():
@@ -39,28 +36,28 @@ def get_csrf_token(session):
     return None
 
 def update_key():
-    new_key = generate_short_key()  # Naay Kaze- na
+    new_key = generate_short_key()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     session = requests.Session()
     csrf_token = get_csrf_token(session)
     if not csrf_token:
         return False, "CSRF error", new_key, timestamp
-    
+
     data = {
-        'csrfmiddlewaretoken': csrf_token,
-        'edit_code': edit_code,
-        'text': new_key  # Key lang gyud with Kaze- prefix
+        "csrfmiddlewaretoken": csrf_token,
+        "edit_code": edit_code,
+        "text": new_key
     }
-    headers = {'Referer': RENTRY_URL}
-    response = session.post(f'{RENTRY_URL}/edit', data=data, headers=headers)
-    
+    headers = {"Referer": RENTRY_URL}
+    response = session.post(f"{RENTRY_URL}/edit", data=data, headers=headers)
+
     if response.status_code == 200:
         check = requests.get(RAW_URL).text.strip()
         if check == new_key:
             return True, "Success", new_key, timestamp
     return False, f"Failed (HTTP {response.status_code})", new_key, timestamp
-
+    
 from datetime import datetime
 
 async def create_and_send_new_key(context: ContextTypes.DEFAULT_TYPE):
