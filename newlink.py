@@ -300,8 +300,11 @@ def update_paste_with_text(text):
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     
-    # Initial key rotation
-    app.job_queue.run_once(create_and_send_new_key, 10)
+    # Initial key rotation (async-safe)
+    app.job_queue.run_once(
+        lambda ctx: app.create_task(create_and_send_new_key(ctx)),
+        when=10
+    )
     
     # Command handlers
     app.add_handler(CommandHandler("start", start))
@@ -314,6 +317,8 @@ def main():
     print("Bot is running...")
     app.run_polling()
 
+if __name__ == "__main__":
+    main()
 # ===== RUN =====
 if __name__ == "__main__":
     keep_alive()
