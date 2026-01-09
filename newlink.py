@@ -191,7 +191,6 @@ async def on_startup(app: Application):
     )
 
 def main():
-    keep_alive()
     app = Application.builder().token(TELEGRAM_TOKEN).post_init(on_startup).build()
 
     # Add handlers
