@@ -1,4 +1,3 @@
-import os
 import logging
 import secrets
 import string
@@ -9,11 +8,16 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 
 # ---------------- Configuration ----------------
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-CHAT_ID = int(os.environ.get("CHAT_ID"))
+CHAT_ID = os.environ.get("CHAT_ID")
 RENTRY_SLUG = os.environ.get("RENTRY_SLUG")
-RENTRY_URL = f"https://rentry.co/{RENTRY_SLUG}"
-RAW_URL = f"https://rentry.co/{RENTRY_SLUG}/raw"
 edit_code = os.environ.get("RENTRY_EDIT_CODE")
+
+if not TELEGRAM_TOKEN or not CHAT_ID or not RENTRY_SLUG or not edit_code:
+    raise ValueError("Missing required environment variables! Please set TELEGRAM_TOKEN, CHAT_ID, RENTRY_SLUG, and RENTRY_EDIT_CODE.")
+
+CHAT_ID = int(CHAT_ID)
+RENTRY_URL = f"https://rentry.co/{RENTRY_SLUG}"
+RAW_URL = f"{RENTRY_URL}/raw"
 
 PREFIX = "Kaze-"
 RANDOM_LENGTH_MIN = 6
