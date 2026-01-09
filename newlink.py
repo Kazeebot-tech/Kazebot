@@ -226,16 +226,14 @@ async def custom(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # ---------------- Main ----------------
+async def on_startup(app: Application):
+    # Schedule first key rotation 10 seconds after bot starts
+    app.job_queue.run_once(create_and_send_new_key, when=10)
+
 def main():
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_TOKEN).post_init(on_startup).build()
 
-    # Initial rotation (async-safe)
-    app.job_queue.run_once(
-        lambda ctx: app.create_task(create_and_send_new_key(ctx)),
-        when=10
-    )
-
-    # Register command handlers
+    # Command handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("set", set_interval))
     app.add_handler(CommandHandler("revoke", revoke))
@@ -245,6 +243,8 @@ def main():
 
     print("Bot is running...")
     app.run_polling()
-
+    
+# ===== RUN =====
 if __name__ == "__main__":
+    keep_alive()
     main()
