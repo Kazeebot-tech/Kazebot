@@ -305,23 +305,29 @@ def update_paste_with_text(text):
 from telegram.ext import CallbackQueryHandler
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global job, current_interval_seconds  # <-- declare globals at the TOP
+    
     query = update.callback_query
     await query.answer()  # Acknowledge the button click
     
     if query.data == "force_key":
         await create_and_send_new_key(context)
         await query.edit_message_text("🔑 New key generated!")
+        
     elif query.data == "stop_rotation":
-        global job
         if job:
             job.schedule_removal()
             job = None
         await query.edit_message_text("⏸️ Rotation paused!")
+        
     elif query.data == "restart_rotation":
-        global current_interval_seconds, job
         if job:
             job.schedule_removal()
-        job = context.job_queue.run_repeating(create_and_send_new_key, interval=current_interval_seconds, first=10)
+        job = context.job_queue.run_repeating(
+            create_and_send_new_key,
+            interval=current_interval_seconds,
+            first=10
+        )
         await query.edit_message_text("▶️ Rotation resumed!")
         
 def main():
