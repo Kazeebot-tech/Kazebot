@@ -7,6 +7,18 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+# ===== WEBKEEP ALIVE =====
+app_web = Flask(__name__)
+OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+
+@app_web.route("/")
+def home():
+    return "Bot is online!"
+
+def keep_alive():
+    port = int(os.environ.get("PORT", 10000))
+    Thread(target=lambda: app_web.run(host="0.0.0.0", port=port)).start()
+    
 # Load environment variables
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = int(os.environ.get("CHAT_ID"))
@@ -299,5 +311,7 @@ def main():
     print("Bot is running...")
     app.run_polling()
 
+# ===== RUN =====
 if __name__ == "__main__":
+    keep_alive()
     main()
