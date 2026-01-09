@@ -116,20 +116,25 @@ def parse_interval(text: str) -> int:
     except:
         return 60
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = (
-        "⚡ **ＫＥＹ ＭＥＮＵ ＣＥＮＴＥＲ** ⚡\n\n"
-        f"📂 **Raw Link:** {RAW_URL}\n\n"
-        "🛠️ **Commands:**\n"
-        "/set <time> - Set a custom interval\n"
-        "/revoke - revoke old key generate a new key\n"
-        "/stop - Stop the key scheduler\n"
-        "/restart - Restart the system\n"
-        "/custom - Set a custom key manually\n"
-    )
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Fancy header
+    header = "⚡ **ＫＥＹ ＭＥＮＵ ＣＥＮＴＥＲ** ⚡\n\n"
+    raw_link = f"📂 **Raw Link:** {RAW_URL}\n\n"
+    
+    # Inline buttons
+    keyboard = [
+        [InlineKeyboardButton("📂 Copy Raw Link", url=RAW_URL)],
+        [InlineKeyboardButton("🔑 Force New Key", callback_data="force_key")],
+        [InlineKeyboardButton("⏸️ Stop Rotation", callback_data="stop_rotation"),
+         InlineKeyboardButton("▶️ Restart Rotation", callback_data="restart_rotation")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
     await update.message.reply_text(
-        message,
+        header + raw_link + "🛠️ **Commands:** Use the buttons below!",
+        reply_markup=reply_markup,
         parse_mode="Markdown"
     )
 
@@ -297,19 +302,44 @@ def update_paste_with_text(text):
             return True
     return False
 
+from telegram.ext import CallbackQueryHandler
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()  # Acknowledge the button click
+    
+    if query.data == "force_key":
+        await create_and_send_new_key(context)
+        await query.edit_message_text("🔑 New key generated!")
+    elif query.data == "stop_rotation":
+        global job
+        if job:
+            job.schedule_removal()
+            job = None
+        await query.edit_message_text("⏸️ Rotation paused!")
+    elif query.data == "restart_rotation":
+        global current_interval_seconds, job
+        if job:
+            job.schedule_removal()
+        job = context.job_queue.run_repeating(create_and_send_new_key, interval=current_interval_seconds, first=10)
+        await query.edit_message_text("▶️ Rotation resumed!")
+        
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     
-    # Initial key rotation
-    app.job_queue.run_once(create_and_send_new_key, 10)
-    
-    # Command handlers
+    # Existing handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("set", set_interval))
     app.add_handler(CommandHandler("revoke", revoke))
     app.add_handler(CommandHandler("stop", stop_rotation))
     app.add_handler(CommandHandler("restart", restart_rotation))
     app.add_handler(CommandHandler("custom", custom))
+    
+    # ✅ Add the callback query handler for buttons
+    app.add_handler(CallbackQueryHandler(button_handler))
+    
+    # Initial key rotation
+    app.job_queue.run_once(create_and_send_new_key, 10)
 
     print("Bot is running...")
     app.run_polling()
