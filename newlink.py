@@ -284,17 +284,20 @@ def update_paste_with_text(text):
 
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
+    
+    # Initial key rotation
     app.job_queue.run_once(create_and_send_new_key, 10)
     
-    app.add_handler(CommandHandler('start', start))
-    app.add_handler(CommandHandler('set', set_interval))
-    app.add_handler(CommandHandler('revoke', revoke))
-    app.add_handler(CommandHandler('stop', stop_rotation))
-    app.add_handler(CommandHandler('restart', restart_rotation))
-    app.add_handler(CommandHandler('custom', custom))
- 
-    print("Bot is running")
+    # Command handlers
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("set", set_interval))
+    app.add_handler(CommandHandler("revoke", revoke))
+    app.add_handler(CommandHandler("stop", stop_rotation))
+    app.add_handler(CommandHandler("restart", restart_rotation))
+    app.add_handler(CommandHandler("custom", custom))
+
+    print("Bot is running...")
     app.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
