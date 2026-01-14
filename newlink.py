@@ -2,10 +2,23 @@ import os
 import random
 import string
 import asyncio
+from flask import Flask
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
+# ===== WEBKEEP ALIVE =====
+app_web = Flask(__name__)
+OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+
+@app_web.route("/")
+def home():
+    return "Bot is online!"
+
+def keep_alive():
+    port = int(os.environ.get("PORT", 10000))
+    Thread(target=lambda: app_web.run(host="0.0.0.0", port=port)).start()
+    
 # Store keys & expiry
 active_keys = {}
 
@@ -89,4 +102,5 @@ async def main():
     await app.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    keep_alive()
+    main()
