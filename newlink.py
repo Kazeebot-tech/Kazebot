@@ -1,60 +1,31 @@
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, CallbackContext
 import os
-from flask import Flask, request
 import requests
-from threading import Lock
 
-app = Flask(__name__)
-
-# Load Telegram config from environment
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
+SERVER_URL = os.environ.get("BASE_URL")  # e.g., https://kazebot-4jkt.onrender.com
 
-if not BOT_TOKEN or not CHAT_ID:
-    raise Exception("Set BOT_TOKEN and CHAT_ID in environment variables!")
+updater = Updater(BOT_TOKEN)
 
-# In-memory ban list
-ban_list = set()
-lock = Lock()
+def ban(update: Update, context: CallbackContext):
+    if not context.args:
+        update.message.reply_text("Usage: /ban DEVICE_ID")
+        return
+    device = context.args[0]
+    r = requests.get(f"{SERVER_URL}/ban?device={device}")
+    update.message.reply_text(r.text)
 
-# Send Telegram message
-def notify_telegram(msg):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.get(url, params={"chat_id": CHAT_ID, "text": msg})
+def check(update: Update, context: CallbackContext):
+    if not context.args:
+        update.message.reply_text("Usage: /check DEVICE_ID")
+        return
+    device = context.args[0]
+    r = requests.get(f"{SERVER_URL}/check?device={device}")
+    update.message.reply_text(f"Device {device}: {r.text}")
 
-# Routes
-@app.route("/check")
-def check_device():
-    device = request.args.get("device")
-    if not device:
-        return "MISSING", 400
-    with lock:
-        if device in ban_list:
-            return "BANNED"
-    return "OK"
+updater.dispatcher.add_handler(CommandHandler("ban", ban))
+updater.dispatcher.add_handler(CommandHandler("check", check))
 
-@app.route("/ban")
-def ban_device():
-    device = request.args.get("device")
-    if not device:
-        return "MISSING", 400
-    with lock:
-        ban_list.add(device)
-    notify_telegram(f"🚫 Device banned: {device}")
-    return f"{device} BANNED!"
-
-@app.route("/unban")
-def unban_device():
-    device = request.args.get("device")
-    if not device:
-        return "MISSING", 400
-    with lock:
-        ban_list.discard(device)
-    notify_telegram(f"✅ Device unbanned: {device}")
-    return f"{device} UNBANNED!"
-
-@app.route("/")
-def index():
-    return "Server online!"
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+updater.start_polling()
+updater.idle()
