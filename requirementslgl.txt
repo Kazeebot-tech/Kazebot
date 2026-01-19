@@ -1,2 +1,2 @@
 python-telegram-bot==22.5
-pip install python-decouple 
+python-decouple==3.5
