@@ -9,11 +9,11 @@ import os
 PREFIX = "Kaze-"
 active_keys = {}
 
-OWNER_ID = int(os.getenv("OWNER_ID"))  # set on render environment
+OWNER_ID = int(os.getenv("OWNER_ID"))
 
 def generate_key(length=9):
     chars = string.ascii_letters + string.digits
-    return PREFIX + ''.join(random.choice(chars) for _ in chars)
+    return PREFIX + ''.join(random.choice(chars) for _ in range(length))
 
 def parse_duration(arg: str) -> timedelta:
     num = int(''.join(filter(str.isdigit, arg)))
@@ -28,12 +28,12 @@ def parse_duration(arg: str) -> timedelta:
     else:
         return timedelta(hours=12)
 
-async def owner_check(update: Update):
+async def is_owner(update: Update):
     return update.effective_user.id == OWNER_ID
 
 async def set_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await owner_check(update):
-        return await update.message.reply_text("❌ Not allowed. Owner only.")
+    if not await is_owner(update):
+        return await update.message.reply_text("❌ Owner only.")
 
     args = context.args
     duration = timedelta(hours=12)
@@ -46,7 +46,7 @@ async def set_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     active_keys[key] = expire_time
 
     await update.message.reply_text(
-        f"Generated key:\n\n`{key}`\n\nTap to copy 👆\nExpires in {duration}",
+        f"Generated:\n`{key}`\nTap to copy\nExpires in: {duration}",
         parse_mode="Markdown"
     )
 
@@ -56,11 +56,11 @@ async def expire_key(key, update):
     remain = (active_keys[key] - datetime.now()).total_seconds()
     await asyncio.sleep(remain)
     del active_keys[key]
-    await update.message.reply_text(f"❗ Key Expired: `{key}`", parse_mode="Markdown")
+    await update.message.reply_text(f"⛔ Expired: `{key}`", parse_mode="Markdown")
 
 async def keys_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await owner_check(update):
-        return await update.message.reply_text("❌ Not allowed. Owner only.")
+    if not await is_owner(update):
+        return await update.message.reply_text("❌ Owner only.")
 
     if not active_keys:
         return await update.message.reply_text("No active keys.")
@@ -68,8 +68,8 @@ async def keys_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = "Active Keys:\n\n"
     for k, t in active_keys.items():
         remain = t - datetime.now()
-        minutes = int(remain.total_seconds() // 60)
-        msg += f"`{k}` — {minutes}m remaining\n"
+        mins = int(remain.total_seconds() // 60)
+        msg += f"`{k}` — {mins}m left\n"
 
     await update.message.reply_text(msg, parse_mode="Markdown")
 
@@ -80,7 +80,7 @@ async def main():
     app.add_handler(CommandHandler("set", set_cmd))
     app.add_handler(CommandHandler("keys", keys_cmd))
 
-    print("BOT RUNNING ON RENDER...")
+    print("Bot running on Render...")
     await app.run_polling()
 
 if __name__ == "__main__":
