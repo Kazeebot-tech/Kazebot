@@ -1,10 +1,10 @@
 import os
 import random
 import string
-import time
+import asyncio
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
-from decouple import config
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from decouple import config  # optional, kung gusto mo dotenv
 
 # Accessing Telegram bot token and chat ID from environment variables
 TELEGRAM_TOKEN = config('TELEGRAM_TOKEN')
