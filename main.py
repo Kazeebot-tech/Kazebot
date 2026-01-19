@@ -1,9 +1,13 @@
-import asyncio
+from telegram import Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+)
 import random
 import string
-from datetime import datetime, timedelta
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import asyncio
+import time
 import os
 
 PREFIX = "Kaze-"
