@@ -2,53 +2,73 @@ import os
 import random
 import string
 import asyncio
+from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from decouple import config  # optional, kung gusto mo dotenv
+from decouple import config
 
-# Accessing Telegram bot token and chat ID from environment variables
+# ENV VARIABLES
 TELEGRAM_TOKEN = config('TELEGRAM_TOKEN')
-CHAT_ID = config('CHAT_ID')
+OWNER_ID = int(config('OWNER_ID'))  # Only owner can use /set
 
-# Dictionary para sa mga active keys at expiration times
+# Store active keys
 active_keys = {}
 
-# Function para mag-generate ng random key
-def generate_key(length):
-    letters_and_digits = string.ascii_letters + string.digits
-    return 'Kaze-' + ''.join(random.choice(letters_and_digits) for i in range(length))
+# Generate random key
+def generate_key(length=10):
+    chars = string.ascii_letters + string.digits
+    return 'Kaze-' + ''.join(random.choice(chars) for _ in range(length))
 
-# Function para sa /set command
-def set_command(update: Update, context: CallbackContext):
-    key = generate_key(10)
-    expiration_time = time.time() + 12*60*60  # 12 oras expiration time
-    active_keys[key] = expiration_time
-    update.message.reply_text(f"New key generated: {key}. Tap to copy.")
-
-# Function para mag-check ng expiration ng keys
-def check_expiration():
-    current_time = time.time()
-    expired_keys = [key for key, exp_time in active_keys.items() if current_time >= exp_time]
-    
-    for key in expired_keys:
+# Expire key after time
+async def expire_key(key: str, duration: timedelta, update: Update):
+    await asyncio.sleep(duration.total_seconds())
+    if key in active_keys:
         del active_keys[key]
-        # I-send ang notification sa user na expired na ang key
-        
-# Main function
-def main():
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("set", set_command))
-    
-    updater.start_polling()
-    
-    # Loop para mag-check ng expiration ng keys
-    while True:
-        check_expiration()
-        time.sleep(60)  # Check every minute
-        
-    updater.idle()
+        await update.message.reply_text(f"❌ Key expired: `{key}`", parse_mode="Markdown")
 
-if __name__ == '__main__':
-    main()
+# /set command
+async def set_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        return await update.message.reply_text("⛔ Only the owner can use this command.")
+
+    # Default duration: 12 hours
+    duration = timedelta(hours=12)
+
+    if context.args:
+        arg = context.args[0]
+        if arg[-1] in ['m','h','d']:
+            value = int(arg[:-1])
+            unit = arg[-1]
+            if unit == 'm': duration = timedelta(minutes=value)
+            elif unit == 'h': duration = timedelta(hours=value)
+            elif unit == 'd': duration = timedelta(days=value)
+        else:
+            return await update.message.reply_text("Invalid duration. Use 1m, 1h, 1d.")
+
+    key = generate_key(10)
+    active_keys[key] = datetime.now() + duration
+
+    await update.message.reply_text(
+        f"✅ New Key:\n`{key}`\nExpires in: {arg if context.args else '12h'}\n(Tap to copy)",
+        parse_mode="Markdown"
+    )
+
+    # Schedule expiration
+    asyncio.create_task(expire_key(key, duration, update))
+
+# /start command
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Bot is online ✅")
+
+# Main function
+async def main():
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("set", set_command))
+
+    print("Bot running on Render...")
+    await app.run_polling()
+
+if __name__ == "__main__":
+    asyncio.run(main())
